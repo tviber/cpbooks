@@ -25,6 +25,18 @@ npm run preview
 
 构建结果在 `dist/`，可以部署到静态网站托管服务。当前交付为本地源码与本地预览。
 
+## CI 与自动部署
+
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) 在推送 `main`、向 `main` 提交 PR，以及手动运行时执行验证：Node.js 22 → `npm ci` → `npm test` → `npm run build`。PR 仅运行验证，不读取部署密钥或发送部署通知。
+
+`main` 验证成功后，Actions 向 `https://txc.cp4.fun/hooks/deploy-main` 发送 HMAC-SHA256 签名的 JSON 通知，包含仓库名、`refs/heads/main` 和本次提交的完整 SHA。服务器按这个 SHA 从 codeload 下载源码，并使用现有 `/root/deploy.sh` 在 `/srv/cpbooks/app` 安装依赖、构建 `dist/`。手动运行工作流时也必须选择 `main` 才会通知服务器；其他分支仅验证。
+
+首次启用需要在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 中添加 `DEPLOY_WEBHOOK_SECRET`，值与部署服务器 `/etc/webhook-secret` 一致。不要将密钥写入源码或日志。未配置时验证任务仍可正常运行，部署任务会明确报错；配置完成后可在 Actions 中手动重跑工作流。
+
+部署通知按仓库串行发送，并设置连接与请求超时，不自动重试，避免重复触发异步部署。HTTP 2xx 和 Actions 的部署任务成功只表示通知被接收；服务器最终是否构建成功，需要查看 `/var/log/deploy-webhook.log`。当前接口未提供部署状态查询，CI 不会等待远端构建完成。服务器原有 `flock -n` 在忙碌时会跳过新请求，密集推送后应核对服务器日志中的提交编号，必要时等待上一轮完成后手动重跑最新提交。
+
+工作流不会修改服务器部署脚本。现有脚本在远端构建前就替换目录并删除旧目录，因此构建失败时不能保证自动回滚或旧版本持续可用；可靠回滚需要在服务器端改为先构建，再切换发布目录。
+
 ## 学习与交互
 
 ### C++ vector
