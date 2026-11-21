@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createMaterials, box, label, releaseGroup } from './materials.js';
 import { makeBook, makeScenery, makeHouse } from './book.js';
 import { makeForest, FOREST_BASE } from './forest.js';
+import { buildTown } from './town-map.js';
 
 const clamp = value => Math.max(0, Math.min(1, value));
 const ease = value => { const fraction = clamp(value); return fraction * fraction * (3 - 2 * fraction); };
@@ -25,6 +26,7 @@ export class BookScene {
     container.appendChild(this.renderer.domElement);
     this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.addEventListener('change', () => { this.mapProjectionDirty = true; });
     this.controls.enableDamping = true;
     this.controls.enablePan = false;
     this.controls.minDistance = 10;
@@ -131,7 +133,8 @@ export class BookScene {
     const distance = Math.max(14.6, 7.1 / (Math.tan(THREE.MathUtils.degToRad(17)) * aspect));
     const forest = this.mode === 'forest';
     this.controls.maxDistance = Math.max(30, distance * 1.5);
-    this.camera.position.set(distance * (forest ? 0.025 : 0.09), distance * (forest ? 0.55 : 0.64), distance * (forest ? 0.84 : 0.77));
+    if (this.mode === 'map') this.camera.position.set(0, distance * 0.81, distance * 0.57);
+    else this.camera.position.set(distance * (forest ? 0.025 : 0.09), distance * (forest ? 0.55 : 0.64), distance * (forest ? 0.84 : 0.77));
     this.controls.target.set(0, forest ? 1.1 : 0.35, 0.1);
     this.controls.update();
   }
@@ -143,6 +146,7 @@ export class BookScene {
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+    this.mapProjectionDirty = true;
     if (this.lastWidth && (Math.abs(this.lastWidth - width) > 30 || Math.abs(this.lastHeight - height) > 30)) this.home();
     this.lastWidth = width;
     this.lastHeight = height;
@@ -163,6 +167,26 @@ export class BookScene {
     this.content.add(this.dynamic);
     this.picks = [];
     this.sawHandle = null;
+    this.town = null;
+    this.signs = null;
+  }
+
+  setMap(frame, inspected, signs) {
+    if (this.mode !== 'map') {
+      this.clear();
+      this.mode = 'map';
+      this.scenery.visible = false;
+      this.sawDraggable = false;
+      this.town = buildTown(this.dynamic, this.materials.materials, this.picks);
+      this.signs = signs;
+      this.mapProjectionDirty = true;
+      this.projectedPoint = new THREE.Vector3();
+      this.projectMapPoint = (x, y, z) => {
+        const v = this.projectedPoint.set(x, y, z).applyMatrix4(this.dynamic.matrixWorld).project(this.camera);
+        return { horizontal: (1 + v.x) * 50, vertical: (1 - v.y) * 50 };
+      };
+    }
+    this.town.update(frame, inspected, this.reducedMotion);
   }
 
   updatePointer(event) {
@@ -320,6 +344,12 @@ export class BookScene {
       }
     }
     this.controls.update();
+    this.town?.tick(now);
     this.renderer.render(this.scene, this.camera);
+    if (this.town && (this.mapProjectionDirty || opened < 1)) {
+      this.signs.layer.style.visibility = opened > .95 ? 'visible' : 'hidden';
+      if (opened > .95) this.signs.project(this.projectMapPoint);
+      this.mapProjectionDirty = opened < 1;
+    }
   }
 }

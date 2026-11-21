@@ -26,6 +26,7 @@ export function shell() {
     <nav class="chapter-nav" aria-label="选择章节">
       <button data-action="chapter" data-chapter="vector"><span>01</span> 动态数组</button>
       <button data-action="chapter" data-chapter="binary"><span>02</span> 砍树</button>
+      <button data-action="chapter" data-chapter="dijkstra"><span>03</span> 最短路</button>
     </nav>
     <div class="header-tools"><button class="reading-button" data-action="drawer" data-tab="learn" aria-label="打开讲解与代码">${icons.code}<span>讲解与代码</span></button><button class="icon-button settings-button" data-action="drawer" data-tab="settings" title="实验设置" aria-label="实验设置">${icons.settings}</button></div>
   </header>

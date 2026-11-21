@@ -6,12 +6,25 @@ import { shell } from './ui/shared.js';
 import { vectorView } from './ui/vector-view.js';
 import { binaryView } from './ui/binary-view.js';
 import { studioView } from './ui/studio-view.js';
+import { createMapLesson } from './lessons/dijkstra.js';
+import { dijkstraView, mapHelp } from './ui/dijkstra-view.js';
+import { MapSigns } from './ui/map-signs.js';
+
+const chapters = {
+  vector: { title: 'C++ vector 动态数组', folio: '01 · C++ vector' },
+  binary: { title: '二分答案 · 砍树', folio: '02 · 二分答案' },
+  dijkstra: { title: 'Dijkstra 最短路', folio: '03 · Dijkstra 最短路' },
+};
+function chapterFromHash() {
+  const key = location.hash.slice(1);
+  return Object.hasOwn(chapters, key) ? key : 'vector';
+}
 
 const STORAGE_KEY = 'lessonProgress';
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch { saved = {}; }
 const model = {
-  chapter: location.hash === '#binary' ? 'binary' : 'vector',
+  chapter: chapterFromHash(), map: createMapLesson(),
   vector: createVector(), vectorHistory: [], vectorChallenge: false,
   vectorMilestones: { inspected: false, filled: false, migrated: false, reserved: false },
   nextValue: 48, reserveValue: 8, selectedIndex: null, prediction: null,
@@ -29,10 +42,38 @@ try {
   scene = new BookScene(document.getElementById('scene'), action => {
     if (action.type === 'slot' && model.chapter === 'vector') inspect(action.index);
     if (['height', 'saw-height'].includes(action.type) && model.chapter === 'binary') selectHeight(action.value);
+    if (action.type === 'stop' && model.chapter === 'dijkstra') inspectStop(action.id);
   });
 } catch (error) {
   document.getElementById('scene').innerHTML = '<div class="scene-fallback"><h2>用平面模型继续实验</h2><p>此设备暂时无法显示三维画面。</p><button data-action="drawer" data-tab="settings">打开槽位与刻度</button></div>';
   console.warn('WebGL scene unavailable:', error.message);
+}
+const signs = new MapSigns(document.getElementById('scene'));
+if (!scene) signs.useFlatMap();
+let mapTimer = null;
+
+function stopPlayback() {
+  clearTimeout(mapTimer);
+  mapTimer = null;
+  model.map.playing = false;
+}
+
+function showMapStep(index, autoplay = false) {
+  stopPlayback();
+  const lesson = model.map;
+  lesson.index = Math.min(lesson.frames.length - 1, Math.max(0, index));
+  lesson.inspected = null;
+  lesson.playing = autoplay && lesson.index < lesson.frames.length - 1;
+  render();
+  drawCurrent();
+  if (lesson.playing) mapTimer = setTimeout(() => showMapStep(lesson.index + 1, true), 3400);
+}
+
+function inspectStop(id) {
+  stopPlayback();
+  model.map.inspected = model.map.inspected === id ? null : id;
+  render();
+  drawCurrent();
 }
 
 function persistAchievement(chapter) {
@@ -44,8 +85,9 @@ function render() {
   const focusedId = document.activeElement?.id;
   const focusedAction = document.activeElement?.dataset.action;
   const focusedIndex = document.activeElement?.dataset.index;
-  const detail = model.chapter === 'vector' ? vectorView(model) : binaryView(model);
-  const view = studioView(model, detail);
+  const isMap = model.chapter === 'dijkstra';
+  const detail = isMap ? dijkstraView(model.map) : model.chapter === 'vector' ? vectorView(model) : binaryView(model);
+  const view = isMap ? detail : studioView(model, detail);
   elements['lesson-title'].textContent = view.title;
   elements['lesson-subtitle'].textContent = view.subtitle;
   elements.stats.innerHTML = view.stats;
@@ -61,9 +103,13 @@ function render() {
   elements.feedback.classList.remove('error');
   elements['drawer-feedback'].textContent = detail.message;
   elements['drawer-feedback'].classList.remove('error');
-  elements['drawer-chapter'].textContent = model.chapter === 'vector' ? '01 · C++ vector' : '02 · 二分答案';
+  elements['drawer-chapter'].textContent = chapters[model.chapter].folio;
   elements['progress-summary'].textContent = `已完成挑战 ${Number(model.achievements.vector) + Number(model.achievements.binary)} / 2 · 进度保存在此浏览器`;
-  document.querySelector('.studio').dataset.mode = model.chapter === 'vector' ? 'vector' : model.binaryMode;
+  elements['progress-summary'].hidden = isMap;
+  document.querySelector('.studio').dataset.mode = model.chapter === 'binary' ? model.binaryMode : model.chapter;
+  signs.layer.hidden = !isMap;
+  document.querySelector('.scene-hint').textContent = isMap ? '圆牌 · 路段用时　方牌 · 总用时（分）' : '拖动旋转 · 双指缩放';
+  if (isMap) signs.update(model.map.frames[model.map.index], model.map.inspected);
   document.querySelectorAll('[data-action="chapter"]').forEach(button => {
     button.classList.toggle('active', button.dataset.chapter === model.chapter);
     button.setAttribute('aria-current', button.dataset.chapter === model.chapter ? 'page' : 'false');
@@ -75,7 +121,7 @@ function render() {
   if (focusedId) document.getElementById(focusedId)?.focus({ preventScroll: true });
   else if (drawer.open && focusedAction === 'inspect') drawer.querySelector(`[data-action="inspect"][data-index="${focusedIndex}"]`)?.focus({ preventScroll: true });
   else if (drawer.open && focusedAction === 'predict-vector') focusAction('predict-vector');
-  document.title = `纸上算法 · ${model.chapter === 'vector' ? 'C++ vector 动态数组' : '二分答案 · 砍树'}`;
+  document.title = `纸上算法 · ${chapters[model.chapter].title}`;
 }
 
 function announce(message, error = false) {
@@ -103,12 +149,14 @@ function selectDrawerTab(tab) {
 }
 
 function openDrawer(tab) {
+  if (model.map.playing) { stopPlayback(); render(); }
   selectDrawerTab(tab);
   if (!drawer.open) drawer.showModal();
   document.getElementById(`${model.drawerTab}-tab`).focus({ preventScroll: true });
 }
 
 function drawCurrent(animate = false, previousRange = null) {
+  if (model.chapter === 'dijkstra') return scene?.setMap(model.map.frames[model.map.index], model.map.inspected, signs);
   if (model.chapter === 'vector') return scene?.setVector(model.vector);
   const exploring = model.binaryMode === 'explore';
   const state = exploring ? { ...model.binary, lo: 0, hi: Math.max(...model.binary.heights), done: false, answer: null } : model.binary;
@@ -123,7 +171,8 @@ async function animateForest(previousRange = null) {
 }
 
 function changeChapter(chapter) {
-  if (model.busy || !['vector', 'binary'].includes(chapter)) return;
+  if (model.busy || !Object.hasOwn(chapters, chapter)) return;
+  stopPlayback();
   model.chapter = chapter;
   history.replaceState(null, '', `#${chapter}`);
   render();
@@ -237,7 +286,7 @@ function openManual(custom = false) {
   document.getElementById('manual-title').textContent = custom ? '设计你的森林题目' : '这本书，怎么读？';
   dialog.querySelector('.manual-content').innerHTML = custom
     ? `<form id="problem-form"><p>输入 2 到 6 棵树的高度，用空格或逗号分隔。每棵树 1–50 米，顺序无需调整。</p><label class="forest-input">树高 / 米<input name="heights" type="text" required value="${model.binary.heights.join(', ')}" autocomplete="off"></label><label class="custom-target">至少需要多少米木材？<input name="target" type="number" min="1" max="500" step="1" required value="${model.binary.target}"></label><p id="form-error" role="alert"></p><button class="primary" type="submit">开始这道题</button></form>`
-    : `<p class="manual-lead">先动手，再把变化看清楚。</p><ol><li><strong>翻开章节。</strong> 上方切换 vector 和砍树，两个实验各自保留本次操作。</li><li><strong>探索模型。</strong> 拖动书本改变视角，用滚轮或双指缩放。点击小屋查看元素；拖动橙色手柄或滑块调整锯片。</li><li><strong>需要时再翻讲解。</strong> 右上角打开讲解与 C++ 代码；实验设置里可以 reserve、换题、修改树高和木材需求，也提供槽位与刻度按钮。</li><li><strong>完成挑战。</strong> 点击底部“开始挑战”，跟随当前问题进行下一步。撤销回到上一轮，右下角重置当前实验。</li></ol><div class="manual-note"><strong>模型说明</strong><p>vector 使用逻辑存储区块，假定 int 为 4 字节；C++ 实际大小和增长策略依实现而定。预留空槽没有元素。</p><p>每次试砍基于原始树高，统计的是高度差而非体积。H = 0 合法，木材总量不足时单独提示无解。二分使用闭区间和向上取整的中点。</p></div>`;
+    : model.chapter === 'dijkstra' ? mapHelp : `<p class="manual-lead">先动手，再把变化看清楚。</p><ol><li><strong>翻开章节。</strong> 上方可以切换章节，各章分别保留本次操作。</li><li><strong>探索模型。</strong> 拖动书本改变视角，用滚轮或双指缩放。点击小屋查看元素；拖动橙色手柄或滑块调整锯片。</li><li><strong>需要时再翻讲解。</strong> 右上角打开讲解与 C++ 代码；实验设置里可以 reserve、换题、修改树高和木材需求，也提供槽位与刻度按钮。</li><li><strong>完成挑战。</strong> 点击底部“开始挑战”，跟随当前问题进行下一步。撤销回到上一轮，右下角重置当前实验。</li></ol><div class="manual-note"><strong>模型说明</strong><p>vector 使用逻辑存储区块，假定 int 为 4 字节；C++ 实际大小和增长策略依实现而定。预留空槽没有元素。</p><p>每次试砍基于原始树高，统计的是高度差而非体积。H = 0 合法，木材总量不足时单独提示无解。二分使用闭区间和向上取整的中点。</p></div>`;
   dialog.showModal();
 }
 
@@ -253,7 +302,19 @@ document.addEventListener('click', async event => {
       case 'drawer': openDrawer(button.dataset.tab); break;
       case 'drawer-tab': selectDrawerTab(button.dataset.tab); break;
       case 'close-drawer': drawer.close(); break;
-      case 'reset-current': model.chapter === 'vector' ? resetVector(model.vectorChallenge) : resetBinary(); break;
+      case 'reset-current':
+        if (model.chapter === 'dijkstra') showMapStep(0);
+        else if (model.chapter === 'vector') resetVector(model.vectorChallenge);
+        else resetBinary();
+        break;
+      case 'map-play': {
+        if (model.map.playing) { stopPlayback(); render(); }
+        else showMapStep(model.map.index === model.map.frames.length - 1 ? 0 : model.map.index + 1, true);
+        break;
+      }
+      case 'map-next': showMapStep(model.map.index + 1); break;
+      case 'map-back': showMapStep(model.map.index - 1); break;
+      case 'map-inspect': inspectStop(button.dataset.stop); break;
       case 'reopen': scene?.reopen(); break;
       case 'manual': openManual(); break;
       case 'close-manual': document.getElementById('manual').close(); break;
@@ -374,6 +435,13 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('change', event => {
+  if (event.target.id === 'map-source') {
+    model.map = createMapLesson(event.target.value);
+    drawer.close();
+    showMapStep(0);
+    return;
+  }
+  if (event.target.id === 'map-seek') { showMapStep(Number(event.target.value) - 1); return; }
   if (event.target.id !== 'scenario-select') return;
   model.scenarioIndex = Number(event.target.value);
   const problem = SCENARIOS[model.scenarioIndex];
@@ -406,7 +474,10 @@ document.addEventListener('keydown', event => {
     document.getElementById(`${tabs[next]}-tab`).focus();
   }
 });
-window.addEventListener('hashchange', () => changeChapter(location.hash === '#binary' ? 'binary' : 'vector'));
+window.addEventListener('hashchange', () => changeChapter(chapterFromHash()));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && model.map.playing) { stopPlayback(); render(); }
+});
 document.getElementById('scene').addEventListener('scene-error', event => announce(event.detail, true));
 for (const dialog of [drawer, document.getElementById('manual')]) {
   dialog.addEventListener('click', event => {

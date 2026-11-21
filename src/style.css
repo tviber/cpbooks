@@ -354,3 +354,52 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* Live map ink stays registered to the paper as the reader turns the book. */
+.scene { position: relative; }
+.map-signs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.station-sign, .road-weight { position: absolute; transform: translate(-50%, -50%); font-variant-numeric: tabular-nums; }
+.station-sign { pointer-events: auto; gap: 7px; min-height: 30px; padding: 3px 7px 3px 10px; border: 1px solid #c6bda8; border-radius: 3px; background: #fffcef; color: #3c4035; font: 600 clamp(12px, 1.05vw, 16px) var(--serif); box-shadow: 0 2px 2px #584f3620; z-index: 1; }
+.station-sign b { display: inline-block; min-width: 1.4em; border-left: 1px solid #d6cdb7; padding-left: 6px; text-align: center; font: 600 1.08em Georgia, serif; }
+.station-sign s { color: #746e5f; font-weight: 400; }
+.station-sign[data-state='candidate'] { background: #fff3d4; border-style: dashed; }
+.station-sign[data-state='fixed'] { background: #e1edd4; color: #244326; border-color: #6c875a; }
+.station-sign.current, .station-sign[aria-pressed='true'] { outline: 2px solid #a55732; outline-offset: 1px; }
+.road-weight { display: grid; place-items: center; color: #594c37; background: #f7efdb; border: 1px solid #d1c2a0; border-radius: 50%; width: clamp(18px, 1.7vw, 27px); aspect-ratio: 1; font: 600 clamp(12px, 1.1vw, 16px)/1 Georgia, serif; }
+.road-weight[data-ink='traced'] { color: white; background: var(--rust); border-color: var(--rust); }
+.road-weight[data-ink='replaced'] { border-style: dashed; color: #756c59; }
+.road-weight[data-ink='rejected'] { border: 2px dashed var(--rust); color: #79422e; }
+.road-weight[data-ink='fixed'] { color: #fff; background: #55734c; border-color: #55734c; }
+.flat-map { inset: 3% 4%; background: #f3e8cf; border: 3px solid #577052; border-radius: 5px; box-shadow: 0 8px 14px #34432a16; }
+.flat-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.flat-map line { stroke: #bbaa89; stroke-width: 3px; vector-effect: non-scaling-stroke; }
+.flat-map .traced { stroke: var(--rust); stroke-width: 5px; }
+.flat-map .rejected { stroke: var(--rust); stroke-dasharray: 5 3; }
+.flat-map .replaced { stroke-dasharray: 3 3; }
+.flat-map .fixed { stroke: var(--accent); }
+.flat-map .candidate { stroke: #c19b53; stroke-dasharray: 5 2; }
+.studio[data-mode='dijkstra'] .scene-fallback { display: none; }
+.studio[data-mode='dijkstra'] .scene-hint { max-width: 230px; line-height: 1.8; }
+.studio[data-mode='dijkstra'] .feedback { font-size: 14px; }
+.map-count { display: flex; align-items: baseline; gap: 9px; color: var(--muted); }
+.map-count strong { color: var(--accent); font: 30px Georgia, serif; }
+.map-count small { font-size: 18px; }
+.map-step { display: grid; align-content: center; gap: 6px; min-width: 175px; padding-inline-end: 16px; border-right: 1px solid var(--line); }
+.map-step small { color: var(--muted); font-size: 12px; }
+.map-step strong { font-size: 17px; font-weight: 500; }
+.map-transport { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.map-transport button:not(.primary) { border-color: transparent; background: transparent; }
+.play-symbol { font-size: 12px; }
+@media (max-width: 700px) {
+  .chapter-nav { gap: clamp(7px, 4vw, 24px); }
+  .map-step { flex-basis: 100%; min-width: 0; border: none; padding: 0 6px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .map-step strong { font-size: 14px; }
+  .map-transport { width: 100%; justify-content: space-around; }
+  .map-count strong { font-size: 23px; }
+  .map-count small { font-size: 15px; }
+  .studio[data-mode='dijkstra'] .scene-hint { max-width: calc(100% - 120px); font-size: 11px; }
+  .studio[data-mode='dijkstra'] .feedback { min-height: 3.2em; font-size: 13px; line-height: 1.6; }
+  .station-sign { gap: 3px; min-height: 24px; padding: 2px 4px; font-size: 12px; }
+  .station-sign b { min-width: 1em; padding-left: 3px; }
+  .road-weight { width: 17px; font-size: 12px; }
+}
