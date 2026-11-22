@@ -6,25 +6,20 @@ import { shell } from './ui/shared.js';
 import { vectorView } from './ui/vector-view.js';
 import { binaryView } from './ui/binary-view.js';
 import { studioView } from './ui/studio-view.js';
-import { createMapLesson, MAP_SCENARIOS, mapDisplay } from './lessons/dijkstra.js';
+import { createMapLesson, mapDisplay } from './lessons/dijkstra.js';
+import { MAP_SCENARIOS } from './lessons/towns.js';
 import { dijkstraView, mapHelp } from './ui/dijkstra-view.js';
 import { MapSigns } from './ui/map-signs.js';
 
 const chapters = {
-  vector: { title: 'C++ vector 动态数组', folio: '01 · C++ vector' },
-  binary: { title: '二分答案 · 砍树', folio: '02 · 二分答案' },
-  dijkstra: { title: 'Dijkstra 最短路', folio: '03 · Dijkstra 最短路' },
+  dijkstra: { title: '第一章 · Dijkstra 最短路', folio: '第一章 · Dijkstra 最短路' },
 };
-function chapterFromHash() {
-  const key = location.hash.slice(1).split('/')[0];
-  return Object.hasOwn(chapters, key) ? key : 'vector';
-}
 
 function mapFromHash() {
-  if (chapterFromHash() !== 'dijkstra') return createMapLesson();
-  const [, scenario, mode] = location.hash.slice(1).split('/');
-  const lesson = createMapLesson('post', scenario);
-  lesson.comparing = mode === 'compare';
+  const [chapter, scenario, mode] = location.hash.slice(1).split('/');
+  if (chapter !== 'dijkstra') return createMapLesson();
+  const lesson = createMapLesson(scenario);
+  lesson.comparing = lesson.scenario.id === scenario && mode === 'compare';
   return lesson;
 }
 
@@ -39,7 +34,7 @@ const STORAGE_KEY = 'lessonProgress';
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch { saved = {}; }
 const model = {
-  chapter: chapterFromHash(), map: mapFromHash(),
+  chapter: 'dijkstra', map: mapFromHash(),
   vector: createVector(), vectorHistory: [], vectorChallenge: false,
   vectorMilestones: { inspected: false, filled: false, migrated: false, reserved: false },
   nextValue: 48, reserveValue: 8, selectedIndex: null, prediction: null,
@@ -54,7 +49,7 @@ const elements = Object.fromEntries(['lesson-title', 'lesson-subtitle', 'stats',
 const drawer = document.getElementById('study-drawer');
 const mapSwitches = document.getElementById('map-switches');
 const scenarioSelect = document.getElementById('map-scenario');
-scenarioSelect.replaceChildren(...MAP_SCENARIOS.map(({ id, name }) => new Option(name, id)));
+scenarioSelect.replaceChildren(...MAP_SCENARIOS.map(({ id, name, stops }) => new Option(`${name} · ${stops.length} 站`, id)));
 let scene;
 try {
   scene = new BookScene(document.getElementById('scene'), action => {
@@ -101,12 +96,14 @@ function inspectStop(id) {
   drawCurrent();
 }
 
-function changeMapExample(source, scenarioId) {
+function changeMapExample(scenarioId, source) {
   const previous = model.map;
   stopPlayback();
-  model.map = createMapLesson(source, scenarioId);
+  model.map = createMapLesson(scenarioId, source);
   model.map.comparing = previous.comparing;
-  model.map.target = previous.source !== source && previous.target === source ? previous.source : previous.target;
+  if (previous.scenario.id === scenarioId) {
+    model.map.target = previous.target === model.map.source ? previous.source : previous.target;
+  }
   syncChapterLink();
   showMapStep(0);
 }
@@ -140,7 +137,7 @@ function render() {
   elements['drawer-feedback'].textContent = detail.message;
   elements['drawer-feedback'].classList.remove('error');
   elements['drawer-chapter'].textContent = chapters[model.chapter].folio;
-  elements['progress-summary'].textContent = `已完成挑战 ${Number(model.achievements.vector) + Number(model.achievements.binary)} / 2 · 进度保存在此浏览器`;
+  elements['progress-summary'].textContent = isMap ? '' : `已完成挑战 ${Number(model.achievements.vector) + Number(model.achievements.binary)} / 2 · 进度保存在此浏览器`;
   elements['progress-summary'].hidden = isMap;
   const studio = document.querySelector('.studio');
   studio.dataset.mode = model.chapter === 'binary' ? model.binaryMode : model.chapter;
@@ -498,12 +495,12 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('change', event => {
-  if (event.target.id === 'map-scenario') { changeMapExample(model.map.source, event.target.value); return; }
+  if (event.target.id === 'map-scenario') { changeMapExample(event.target.value); return; }
   if (event.target.id === 'map-target') { inspectStop(event.target.value); return; }
   if (event.target.id === 'map-source') {
     const source = event.target.value;
     drawer.close();
-    changeMapExample(source, model.map.scenario.id);
+    changeMapExample(model.map.scenario.id, source);
     return;
   }
   if (event.target.id === 'map-seek') {
@@ -545,9 +542,8 @@ document.addEventListener('keydown', event => {
   }
 });
 window.addEventListener('hashchange', () => {
-  const chapter = chapterFromHash();
-  if (chapter === 'dijkstra') model.map = mapFromHash();
-  changeChapter(chapter);
+  model.map = mapFromHash();
+  changeChapter('dijkstra');
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && model.map.playing) { stopPlayback(); render(); }
@@ -559,6 +555,7 @@ for (const dialog of [drawer, document.getElementById('manual')]) {
     if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close();
   });
 }
+syncChapterLink();
 render();
 drawCurrent();
 scene?.home();

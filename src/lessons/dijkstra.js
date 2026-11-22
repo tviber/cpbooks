@@ -1,25 +1,4 @@
-// Road weights are minutes on an undirected road, independent of its drawn length.
-export const STOPS = [
-  { id: 'post', name: '邮局' }, { id: 'clock', name: '钟楼' },
-  { id: 'garden', name: '花园' }, { id: 'books', name: '书店' }, { id: 'pier', name: '码头' },
-];
-export const ROADS = [
-  { from: 'post', to: 'clock', minutes: 7 },
-  { from: 'post', to: 'garden', minutes: 2 },
-  { from: 'garden', to: 'clock', minutes: 1 },
-  { from: 'garden', to: 'books', minutes: 2 },
-  { from: 'clock', to: 'books', minutes: 2 },
-  { from: 'garden', to: 'pier', minutes: 8 },
-  { from: 'books', to: 'pier', minutes: 2 },
-];
-
-// Each variation changes just one weight so its effect can be isolated.
-export const MAP_SCENARIOS = [
-  { id: 'everyday', name: '集市街区' },
-  { id: 'riverside', name: '滨河栈道', via: '走栈道', change: { from: 'garden', to: 'pier', minutes: 2 } },
-  { id: 'clock', name: '钟楼车站', via: '走快线', change: { from: 'post', to: 'clock', minutes: 1 } },
-  { id: 'tie', name: '双桥河谷', via: '过吊桥', change: { from: 'garden', to: 'pier', minutes: 4 } },
-];
+import { MAP_SCENARIOS } from './towns.js';
 
 export const connects = (road, a, b) => road.from === a && road.to === b || road.from === b && road.to === a;
 
@@ -113,18 +92,18 @@ export function roadInk(road, frame, inspectedRoute = null) {
   return frame.settled.includes(child) ? 'fixed' : 'candidate';
 }
 
-export function createMapLesson(source = 'post', scenarioId = 'everyday') {
+export function createMapLesson(scenarioId, source) {
   const scenario = MAP_SCENARIOS.find(s => s.id === scenarioId) ?? MAP_SCENARIOS[0];
-  const change = scenario.change;
-  const roads = ROADS.map(road => change && connects(road, change.from, change.to) ? { ...road, minutes: change.minutes } : road);
-  return { source, scenario, roads, frames: dijkstraFrames(STOPS, roads, source), index: 0, playing: false, inspected: null,
-    comparing: false, target: source === 'pier' ? 'post' : 'pier', routeIndex: 0 };
+  const { stops, roads } = scenario;
+  source ??= scenario.source;
+  return { source, scenario, frames: dijkstraFrames(stops, roads, source), index: 0, playing: false, inspected: null,
+    comparing: false, target: source === scenario.target ? scenario.source : scenario.target, routeIndex: 0 };
 }
 
 export function mapDisplay(lesson) {
-  const { roads, frames, index, comparing, routeIndex } = lesson;
+  const { scenario, frames, index, comparing, routeIndex } = lesson;
   const frame = comparing ? frames.at(-1) : frames[index];
   const inspected = comparing ? lesson.target : lesson.inspected;
-  const routes = !inspected ? [] : frame.kind === 'finish' ? shortestRoutesTo(frame, roads, inspected) : [routeTo(frame, inspected)];
-  return { scenario: lesson.scenario, frame, roads, inspected, routes, route: inspected ? routes[routeIndex] ?? routes[0] ?? [] : null };
+  const routes = !inspected ? [] : frame.kind === 'finish' ? shortestRoutesTo(frame, scenario.roads, inspected) : [routeTo(frame, inspected)];
+  return { scenario, frame, inspected, routes, route: inspected ? routes[routeIndex] ?? routes[0] ?? [] : null };
 }

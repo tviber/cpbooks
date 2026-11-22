@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { box } from './materials.js';
 import { makeTree } from './book.js';
-import { STOPS, ROADS, roadInk } from '../lessons/dijkstra.js';
+import { roadInk } from '../lessons/dijkstra.js';
 import { cutout, disk, groupAt, mesh as solid } from './town-paper.js';
 import { pointOnPath, roadPath, townLayout } from './town-layouts.js';
 import { landscapes } from './town-landscapes.js';
+import { localLandmarks } from './station-props.js';
 
 function house(group, m, bookshop) {
   const width = bookshop ? 1.12 : 0.94;
@@ -70,25 +71,23 @@ function pier(group, m) {
 
 const styles = {
   everyday: { road: 'biscuit', edge: 'sand', pad: 8, scale: { post: 1.07 } },
-  riverside: { road: 'sand', edge: 'edge', pad: 12, scale: { pier: 1.16, clock: .83 }, colors: { rust: 'coral', green: 'turquoise', blue: 'aqua' } },
-  clock: { road: 'cream', edge: 'slate', pad: 4, scale: { clock: 1.32, pier: .83 }, colors: { green: 'navy', rust: 'mustard', sand: 'slate' } },
-  tie: { road: 'paper', edge: 'heather', pad: 6, scale: { garden: 1.13, clock: .85 }, colors: { green: 'plum', rust: 'brick', blue: 'aqua' } },
+  riverside: { road: 'sand', edge: 'edge', pad: 12, scale: { ferry: 1.10, beacon: .94 }, colors: { rust: 'coral', blue: 'aqua' } },
+  clock: { road: 'cream', edge: 'slate', pad: 4, scale: { hall: 1.03 }, colors: { green: 'navy' } },
+  tie: { road: 'paper', edge: 'heather', pad: 6, scale: {}, colors: { rust: 'brick', blue: 'aqua' } },
 };
 
 function buildRoad(group, road, layout, theme, m) {
   const path = roadPath(layout, road.from, road.to);
   const style = styles[theme];
-  const boardwalk = theme === 'riverside' && road.from === 'garden' && road.to === 'pier';
-  const railway = theme === 'clock' && road.from === 'post' && road.to === 'clock';
+  const boardwalk = layout.boardwalks?.includes(`${road.from}-${road.to}`);
   const marks = [];
   for (let i = 1; i < path.length; i++) {
     const [ax, az] = path[i - 1], [bx, bz] = path[i];
     const length = Math.hypot(bx - ax, bz - az);
     const strip = groupAt(group, (ax + bx) / 2, .153, (az + bz) / 2, Math.atan2(bx - ax, bz - az));
-    const width = boardwalk ? .44 : railway ? .38 : .20;
+    const width = boardwalk ? .44 : .20;
     box(strip, [width, .032, length + .025], m[style.road]);
-    if (railway) for (const side of [-.15, .15]) box(strip, [.032,.032,length], m.navy, [side,.022,0]);
-    if (boardwalk || railway) for (let d = .12; d < length; d += .30) {
+    if (boardwalk) for (let d = .12; d < length; d += .30) {
       box(strip, [width, .018, .035], m[style.edge], [0,.022,d-length/2]);
     }
     marks.push(box(strip, [.086,.014,length+.035], m[style.edge], [0,.040,0]));
@@ -96,24 +95,26 @@ function buildRoad(group, road, layout, theme, m) {
   return { road, marks };
 }
 
-export function buildTown(group, m, picks, theme) {
+export function buildTown(group, m, picks, scenario) {
+  const { id: theme, stops } = scenario;
   const layout = townLayout(theme), style = styles[theme];
   landscapes[theme](group, m);
   const palette = { ...m };
   for (const [key, color] of Object.entries(style.colors ?? {})) palette[key] = m[color];
-  const landmarks = { post: g => house(g, palette, false), clock: g => clockTower(g, palette), garden: g => garden(g, palette), books: g => house(g, palette, true), pier: g => pier(g, palette) };
+  const landmarks = { ...localLandmarks, post: (g,m) => house(g,m,false), books: (g,m) => house(g,m,true), clock: clockTower, hall: clockTower, garden, pier, ferry: pier };
   const pads = {};
-  for (const { id } of STOPS) {
+  for (const { id } of stops) {
     const [x, z] = layout.stops[id];
-    const place = groupAt(group, x, .18, z);
+    const onBridge = id === 'rope' || id === 'truss';
+    const place = groupAt(group, x, onBridge ? 0 : .18, z);
     place.scale.setScalar(style.scale[id] ?? 1);
     place.userData.action = { type: 'stop', id };
     picks.push(place);
-    pads[id] = disk(place, 0, .035, 0, .74, .065, m.paper, style.pad);
+    pads[id] = disk(place, 0, onBridge ? .174 : .035, 0, onBridge ? .17 : .74, onBridge ? .016 : .065, m.paper, style.pad);
     pads[id].scale.z = .78;
-    landmarks[id](place);
+    landmarks[id](place, palette);
   }
-  const roads = ROADS.map(road => buildRoad(group, road, layout, theme, m));
+  const roads = scenario.roads.map(road => buildRoad(group, road, layout, theme, m));
   const courier = solid(group, new THREE.OctahedronGeometry(.12), m.rust, 0, .15, 0);
   const inks = { idle: m[style.edge], candidate: m.sand, fixed: m.green, traced: m.rust, rejected: m.rust, replaced: m[style.edge], equal: m.blue };
   let traveling = null;
@@ -126,7 +127,7 @@ export function buildTown(group, m, picks, theme) {
           ink.scale.x = { traced: 2.35, equal: 2.35, rejected: 1.75, fixed: 1.75, replaced: .6 }[state] ?? 1;
         }
       }
-      for (const { id } of STOPS) {
+      for (const { id } of stops) {
         pads[id].material = frame.settled.includes(id) ? m.mint : Number.isFinite(frame.distance[id]) ? m.sand : m.paper;
       }
       traveling = frame.kind === 'road' && !inspected && !reducedMotion

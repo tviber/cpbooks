@@ -1,9 +1,7 @@
-import { STOPS, ROADS, roadInk } from '../lessons/dijkstra.js';
+import { roadInk } from '../lessons/dijkstra.js';
 import { timeLabel } from './dijkstra-view.js';
 import { pointOnPath, roadPath, townLayout } from '../scene/town-layouts.js';
 import { flatPoint, flatTerrain } from './flat-town.js';
-
-const names = Object.fromEntries(STOPS.map(({ id, name }) => [id, name]));
 
 // Labels stay in screen pixels, even when a class is watching on a phone.
 export class MapSigns {
@@ -11,9 +9,16 @@ export class MapSigns {
     this.layer = document.createElement('div');
     this.layer.className = 'map-signs';
     this.layer.setAttribute('role', 'group');
-    this.layer.setAttribute('aria-label', '小镇地图，路段和站牌的用时单位为分钟');
     container.appendChild(this.layer);
-    this.stops = STOPS.map(stop => {
+  }
+
+  setLayout(scenario) {
+    if (this.theme === scenario.id) return;
+    this.theme = scenario.id;
+    const layout = townLayout(this.theme);
+    this.layer.replaceChildren(...(this.svg ? [this.svg] : []));
+    this.layer.setAttribute('aria-label', `${scenario.name}地图，${scenario.stops.length} 个站点，路段和站牌的用时单位为分钟`);
+    this.stops = scenario.stops.map(stop => {
       const button = document.createElement('button');
       button.className = 'station-sign';
       button.dataset.action = 'map-inspect';
@@ -22,25 +27,21 @@ export class MapSigns {
       this.layer.appendChild(button);
       return button;
     });
-    this.weights = ROADS.map(() => {
+    const names = Object.fromEntries(scenario.stops.map(({ id, name }) => [id, name]));
+    this.weights = scenario.roads.map(({ from, to, minutes }) => {
       const tag = document.createElement('span');
       tag.className = 'road-weight';
+      tag.textContent = minutes;
+      tag.setAttribute('aria-label', `${names[from]}到${names[to]}，${minutes}分钟`);
       this.layer.appendChild(tag);
       return tag;
     });
-  }
-
-  setLayout(scenario) {
-    if (this.theme === scenario.id) return;
-    this.theme = scenario.id;
-    const layout = townLayout(this.theme);
-    this.layer.setAttribute('aria-label', `${scenario.name}地图，路段和站牌的用时单位为分钟`);
-    this.items = STOPS.map(({ id }, i) => {
+    this.items = scenario.stops.map(({ id }, i) => {
       const [x, z] = layout.stops[id];
       const [dx, dz] = this.svg ? [0, 0] : layout.signOffsets?.[id] ?? [0, .78];
       return { element: this.stops[i], x: x + dx, y: .27, z: z + dz };
     });
-    const paths = ROADS.map(({ from, to }, i) => {
+    const paths = scenario.roads.map(({ from, to }, i) => {
       const path = roadPath(layout, from, to);
       const [x,z] = pointOnPath(path, layout.labels[`${from}-${to}`] ?? .5);
       this.items.push({ element: this.weights[i], x, y: .23, z });
@@ -58,10 +59,10 @@ export class MapSigns {
     }
   }
 
-  update({ scenario, frame, roads, inspected, route }) {
+  update({ scenario, frame, inspected, route }) {
     this.setLayout(scenario);
     this.stops.forEach((button, i) => {
-      const { id, name } = STOPS[i];
+      const { id, name } = scenario.stops[i];
       const value = frame.distance[id];
       const fixed = frame.settled.includes(id);
       const status = fixed ? '已确定' : Number.isFinite(value) ? '暂定' : '待发现';
@@ -75,12 +76,7 @@ export class MapSigns {
       else number.textContent = `${fixed ? '✓ ' : ''}${timeLabel(value)}`;
     });
     this.weights.forEach((tag, i) => {
-      const road = roads[i];
-      const changed = road.minutes !== ROADS[i].minutes;
-      const ink = roadInk(road, frame, route);
-      tag.textContent = road.minutes;
-      tag.classList.toggle('changed-weight', changed);
-      tag.setAttribute('aria-label', `${names[road.from]}到${names[road.to]}，${road.minutes}分钟${changed ? `，平日${ROADS[i].minutes}分钟` : ''}`);
+      const ink = roadInk(scenario.roads[i], frame, route);
       tag.dataset.ink = ink;
       this.flatLines?.[i].setAttribute('class', ink);
     });

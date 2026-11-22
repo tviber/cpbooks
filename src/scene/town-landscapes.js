@@ -48,8 +48,7 @@ function market(group, m) {
   for (const [x,z,s] of [[-4.8,2.42,.49],[-4.23,2.62,.34],[5.11,-1.35,.39]]) makeTree(group,m,[x,.04,z],s);
 }
 
-function lighthouse(parent, m, x, z) {
-  const tower = groupAt(parent, x, .12, z);
+export function lighthouse(tower, m) {
   disk(tower, 0, .04, 0, .65, .08, m.cream, 12);
   for (let i = 0; i < 4; i++) {
     mesh(tower, new THREE.CylinderGeometry(.42-i*.046,.47-i*.046,.39,10), i % 2 ? m.coral : m.white, 0, .26+i*.39, 0);
@@ -81,9 +80,8 @@ function riverside(group, m) {
   }
   ground(group, [[-3.91,1.36],[-3.29,1.02],[-2.50,1.08],[-1.84,1.59],[-2.16,2.12],[-3.27,2.28],[-3.86,1.95]], m.pale, .13, .05);
   ground(group, [[3.74,-2.98],[5.06,-3.08],[5.49,-2.26],[5.05,-1.67],[3.91,-1.86]],m.pale,.10,.07);
-  lighthouse(group,m,4.59,-2.37);
   sailboat(group,m,-4.47,2.29,.92,-.29);
-  sailboat(group,m,1.49,.50,.54,.36);
+  sailboat(group,m,2.12,3.00,.54,.36);
   for (const [x,z,s] of [[-4.91,-2.89,.53],[-4.21,-2.77,.39],[1.48,-2.9,.33]]) makeTree(group,m,[x,.03,z],s);
 }
 
@@ -125,7 +123,8 @@ function station(group, m) {
   railLine(group,m,-5.35,5.33,2.82);
   train(group,m,-1.49,2.82);
   // Single folded sawtooth station roof behind the clock, with open steel columns.
-  const shed = groupAt(group,-3.67,.07,-2.78);
+  const shed = groupAt(group,-3.87,.07,-2.89);
+  shed.scale.setScalar(.86);
   box(shed,[2.88,.11,1.0],m.slate,[0,.055,0]);
   for (const dx of [-1.23,0,1.23]) for (const dz of [-.35,.35]) box(shed,[.06,1.0,.06],m.navy,[dx,.53,dz]);
   for (let i=0;i<3;i++) {
@@ -134,22 +133,21 @@ function station(group, m) {
     const roof = box(shed,[1.15,.067,1.1],m.navy,[dx,1.32,0]);
     roof.rotation.z = .46;
   }
-  const signal = groupAt(group,4.25,.08,2.07);
+  const signal = groupAt(group,5.17,.08,2.79);
   box(signal,[.081,1.26,.081],m.navy,[0,.63,0]);
   box(signal,[.31,.55,.16],m.ink,[0,1.26,0]);
   for (const [dy,col] of [[1.39,m.red],[1.17,m.mint]]) disk(signal,0,dy,.104,.085,.037,col).rotation.x=Math.PI/2;
 }
 
-function peak(group,m,x,z,width,height) {
+export function peak(group,m,x,z,width,height) {
   const h = height, w = width/2;
   cutout(group,[[-w,0],[0,h],[w,0]],m.heather,x,.12,z,.22);
   cutout(group,[[0,h],[w,0],[w*.21,0]],m.plum,x,.12,z+.225,.015);
   cutout(group,[[-w*.32,h*.68],[0,h],[w*.31,h*.69],[w*.12,h*.76],[-w*.03,h*.69],[-w*.16,h*.77]],m.white,x,.13,z+.244,.012);
 }
 
-function bridge(group, m, x, z, truss) {
+export function bridge(crossing, m, truss) {
   const span = 2.75, deck = .135, half = span/2;
-  const crossing = groupAt(group,x,0,z);
   box(crossing,[span,.10,.59],m.sand,[0,deck-.065,0]);
   for (let i=0;i<13;i++) box(crossing,[.031,.019,.56],m.edge,[-half+.12+i*.205,deck-.010,0]);
   for (const side of [-.32,.32]) {
@@ -182,11 +180,8 @@ function valley(group,m) {
   }
   peak(group,m,-4.37,-2.88,2.13,1.77);
   peak(group,m,-3.23,-2.97,1.66,1.21);
-  peak(group,m,3.32,-2.93,2.54,2.04);
-  peak(group,m,4.78,-2.73,1.57,1.38);
-  for (const [x,z,s] of [[-4.99,2.33,.64],[-4.44,2.69,.46],[3.75,2.65,.53],[4.49,2.45,.69],[4.93,2.68,.36]]) makeTree(group,m,[x,.10,z],s);
-  bridge(group,m,1.15,-1.65,true);
-  bridge(group,m,1.15,1.72,false);
+  peak(group,m,4.88,-3.04,1.28,1.14);
+  for (const [x,z,s] of [[-4.99,2.33,.64],[-4.44,2.69,.46],[4.92,2.83,.48]]) makeTree(group,m,[x,.10,z],s);
 }
 
 export const landscapes = { everyday: market, riverside, clock: station, tie: valley };

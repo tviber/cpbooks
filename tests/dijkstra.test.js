@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STOPS, ROADS, MAP_SCENARIOS, createMapLesson, dijkstraFrames, mapDisplay, roadInk, routeTo, shortestRoutesTo } from '../src/lessons/dijkstra.js';
+import { createMapLesson, dijkstraFrames, mapDisplay, roadInk, routeTo, shortestRoutesTo } from '../src/lessons/dijkstra.js';
+import { MAP_SCENARIOS } from '../src/lessons/towns.js';
+const { stops: STOPS, roads: ROADS } = MAP_SCENARIOS.find(s => s.id === 'everyday');
 
 test('stepping back across the clock-tower improvement restores both its old distance and its old route', () => {
   const { frames } = createMapLesson();
@@ -29,7 +31,7 @@ test('each departure station settles the true minimum, and the painted tree reco
   // Independent distances for the five-station teaching map, in STOPS order.
   const expected = { post: [0, 3, 2, 4, 6], clock: [3, 0, 1, 2, 4], garden: [2, 1, 0, 2, 4], books: [4, 2, 2, 0, 2], pier: [6, 4, 4, 2, 0] };
   for (const { id: source } of STOPS) {
-    const { frames } = createMapLesson(source);
+    const { frames } = createMapLesson('everyday', source);
     const finish = frames.at(-1);
     assert.equal(finish.kind, 'finish');
     assert.deepEqual(STOPS.map(({ id }) => finish.distance[id]), expected[source]);
@@ -63,25 +65,24 @@ test('zero-minute roads can tie, unreachable stations stay at infinity, and nega
   assert.throws(() => dijkstraFrames(stops, [{ ...roads[0], minutes: -1 }], 'a'), RangeError);
 });
 
-test('each new town example changes just one road and really changes the fastest walk to the pier', () => {
+test('each spread opens on its own connected graph and illustrates its advertised route', () => {
   const expected = {
-    everyday: [6, [['post', 'garden', 'books', 'pier']]],
-    riverside: [4, [['post', 'garden', 'pier']]],
-    clock: [5, [['post', 'clock', 'books', 'pier']]],
-    tie: [6, [['post', 'garden', 'pier'], ['post', 'garden', 'books', 'pier']]],
+    everyday: [5, 6, [['post', 'garden', 'books', 'pier']]],
+    riverside: [6, 7, [['ferry', 'reed', 'dock', 'beacon']]],
+    clock: [7, 7, [['gate', 'ticket', 'hall', 'check', 'platform']]],
+    tie: [8, 8, [['camp', 'trail', 'rope', 'spring', 'summit'], ['camp', 'pine', 'truss', 'ridge', 'summit']]],
   };
-  for (const { id } of MAP_SCENARIOS) {
-    const lesson = createMapLesson('post', id);
-    assert.deepEqual(lesson.roads.map(r => [r.from, r.to]), ROADS.map(r => [r.from, r.to]));
-    assert.equal(lesson.roads.filter((r, i) => r.minutes !== ROADS[i].minutes).length, id === 'everyday' ? 0 : 1);
+  for (const { id, stops, target } of MAP_SCENARIOS) {
+    const lesson = createMapLesson(id);
     const { frame, routes } = mapDisplay({ ...lesson, comparing: true });
-    assert.deepEqual([frame.distance.pier, routes], expected[id]);
+    assert.deepEqual([stops.length, frame.distance[target], routes], expected[id]);
+    assert.equal(frame.settled.length, stops.length);
   }
 });
 
 test('all equal shortest routes agree with exhaustive walks for every source and destination in all four towns', () => {
-  for (const { id: scenario } of MAP_SCENARIOS) for (const { id: source } of STOPS) {
-    const { frames, roads } = createMapLesson(source, scenario);
+  for (const { id: scenario, stops, roads } of MAP_SCENARIOS) for (const { id: source } of stops) {
+    const { frames } = createMapLesson(scenario, source);
     const walks = [];
     function visit(path, cost) {
       const last = path.at(-1);
@@ -92,7 +93,7 @@ test('all equal shortest routes agree with exhaustive walks for every source and
       }
     }
     visit([source], 0);
-    for (const { id } of STOPS) {
+    for (const { id } of stops) {
       const arriving = walks.filter(w => w.last === id);
       const best = Math.min(...arriving.map(w => w.cost));
       const actual = shortestRoutesTo(frames.at(-1), roads, id);
@@ -103,14 +104,14 @@ test('all equal shortest routes agree with exhaustive walks for every source and
 });
 
 test('comparing a tie can change the highlighted walk without changing the recorded tree or revealing future steps', () => {
-  const lesson = createMapLesson('post', 'tie');
-  const i = lesson.frames.findIndex(f => f.kind === 'road' && f.to === 'pier' && f.proposed === f.old);
-  const step = { ...lesson, index: i, inspected: 'pier' };
-  assert.deepEqual(mapDisplay(step).route, ['post', 'garden', 'pier']);
-  assert.equal(roadInk(lesson.roads.find(r => r.from === 'books' && r.to === 'pier'), step.frames[i]), 'equal');
+  const lesson = createMapLesson('tie');
+  const i = lesson.frames.findIndex(f => f.kind === 'road' && f.to === 'summit' && f.proposed === f.old);
+  const step = { ...lesson, index: i, inspected: 'summit' };
+  assert.deepEqual(mapDisplay(step).route, ['camp', 'trail', 'rope', 'spring', 'summit']);
+  assert.equal(roadInk(lesson.scenario.roads.find(r => r.from === 'ridge' && r.to === 'summit'), step.frames[i]), 'equal');
   const second = mapDisplay({ ...step, comparing: true, routeIndex: 1 });
-  assert.deepEqual(second.route, ['post', 'garden', 'books', 'pier']);
-  assert.equal(second.frame.previous.pier, 'garden');
+  assert.deepEqual(second.route, ['camp', 'pine', 'truss', 'ridge', 'summit']);
+  assert.equal(second.frame.previous.summit, 'spring');
   assert.equal(mapDisplay(step).frame, lesson.frames[i]);
-  assert.deepEqual(mapDisplay({ ...lesson, inspected: 'pier' }).route, []);
+  assert.deepEqual(mapDisplay({ ...lesson, inspected: 'summit' }).route, []);
 });
