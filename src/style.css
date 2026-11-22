@@ -369,6 +369,8 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
 .road-weight[data-ink='traced'] { color: white; background: var(--rust); border-color: var(--rust); }
 .road-weight[data-ink='replaced'] { border-style: dashed; color: #756c59; }
 .road-weight[data-ink='rejected'] { border: 2px dashed var(--rust); color: #79422e; }
+.road-weight[data-ink='equal'] { background: #456c71; color: white; border-color: #456c71; }
+.road-weight.changed-weight { outline: 1px dashed #785d41; outline-offset: 2px; }
 .road-weight[data-ink='fixed'] { color: #fff; background: #55734c; border-color: #55734c; }
 .flat-map { inset: 3% 4%; background: #f3e8cf; border: 3px solid #577052; border-radius: 5px; box-shadow: 0 8px 14px #34432a16; }
 .flat-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -376,11 +378,22 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
 .flat-map .traced { stroke: var(--rust); stroke-width: 5px; }
 .flat-map .rejected { stroke: var(--rust); stroke-dasharray: 5 3; }
 .flat-map .replaced { stroke-dasharray: 3 3; }
+.flat-map .equal { stroke: #456c71; stroke-width: 5px; }
 .flat-map .fixed { stroke: var(--accent); }
 .flat-map .candidate { stroke: #c19b53; stroke-dasharray: 5 2; }
 .studio[data-mode='dijkstra'] .scene-fallback { display: none; }
 .studio[data-mode='dijkstra'] .scene-hint { max-width: 230px; line-height: 1.8; }
 .studio[data-mode='dijkstra'] .feedback { font-size: 14px; }
+.map-switches { position: absolute; z-index: 3; top: 38px; right: 4%; display: flex; gap: 8px; align-items: center; }
+.map-switches label, .route-choices label { color: #596353; font-size: 13px; }
+.map-switches select, .map-switches button { min-height: 38px; font-size: 14px; }
+.map-switches select, .route-choices select { color: var(--ink); padding-block: 6px; border-color: #c0c8b9; cursor: pointer; }
+.map-switches button { border-color: #b9c7af; background: var(--accent-soft); color: #3c592e; }
+.studio[data-mode='dijkstra'] .live-stats { top: 88px; }
+.route-choices { display: flex; align-items: center; gap: 8px; }
+.route-choices small { font-size: 12px; font-variant-numeric: tabular-nums; }
+.route-sum { white-space: nowrap; color: #56664b; font-variant-numeric: tabular-nums; }
+.route-sum b { color: var(--ink); font-size: 18px; }
 .map-count { display: flex; align-items: baseline; gap: 9px; color: var(--muted); }
 .map-count strong { color: var(--accent); font: 30px Georgia, serif; }
 .map-count small { font-size: 18px; }
@@ -397,9 +410,21 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
   .map-transport { width: 100%; justify-content: space-around; }
   .map-count strong { font-size: 23px; }
   .map-count small { font-size: 15px; }
+  .map-switches { top: 97px; left: 22px; right: auto; gap: 6px; }
+  .map-switches select, .map-switches button { min-height: 40px; padding-inline: 8px; }
+  .studio[data-mode='dijkstra'] .live-stats { top: 105px; left: auto; right: 22px; }
+  .map-count { gap: 5px; font-size: 12px; }
+  .route-choices { gap: 5px; }
+  .route-sum { font-size: 13px; }
   .studio[data-mode='dijkstra'] .scene-hint { max-width: calc(100% - 120px); font-size: 11px; }
   .studio[data-mode='dijkstra'] .feedback { min-height: 3.2em; font-size: 13px; line-height: 1.6; }
   .station-sign { gap: 3px; min-height: 24px; padding: 2px 4px; font-size: 12px; }
   .station-sign b { min-width: 1em; padding-left: 3px; }
   .road-weight { width: 17px; font-size: 12px; }
+}
+@media (max-width: 370px) {
+  .map-switches { left: 13px; }
+  .map-switches select, .map-switches button { padding-inline: 5px; font-size: 13px; }
+  .studio[data-mode='dijkstra'] .live-stats { right: 13px; }
+  .route-choices .primary { padding-inline: 9px; }
 }

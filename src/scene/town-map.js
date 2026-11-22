@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { box } from './materials.js';
 import { makeTree } from './book.js';
-import { STOPS, ROADS, roadInk, routeTo } from '../lessons/dijkstra.js';
+import { STOPS, ROADS, roadInk } from '../lessons/dijkstra.js';
 
 const stopById = Object.fromEntries(STOPS.map(stop => [stop.id, stop]));
 
@@ -112,15 +112,14 @@ export function buildTown(group, m, picks) {
   // A few folded trees frame the diagram without marking extra stops.
   for (const [x,z,s] of [[-4.8,-2.7,.38],[-4.43,-2.84,.25],[4.7,-2.60,.4],[4.31,-2.82,.28],[-4.7,2.70,.27]]) makeTree(group, m, [x,.01,z], s);
   const courier = solid(group, new THREE.OctahedronGeometry(.12), m.rust, 0, .15, 0);
-  const inks = { idle: m.edge, candidate: m.sand, fixed: m.green, traced: m.rust, rejected: m.rust, replaced: m.edge };
+  const inks = { idle: m.edge, candidate: m.sand, fixed: m.green, traced: m.rust, rejected: m.rust, replaced: m.edge, equal: m.blue };
   let traveling = null;
   return {
-    update(frame, inspected, reducedMotion) {
-      const route = inspected ? routeTo(frame, inspected) : null;
+    update({ frame, inspected, route }, reducedMotion) {
       for (const { road, ink } of roads) {
         const state = roadInk(road, frame, route);
         ink.material = inks[state];
-        ink.scale.x = { traced: 2.35, rejected: 1.75, fixed: 1.75, replaced: .6 }[state] ?? 1;
+        ink.scale.x = { traced: 2.35, equal: 2.35, rejected: 1.75, fixed: 1.75, replaced: .6 }[state] ?? 1;
       }
       for (const { id } of STOPS) {
         pads[id].material = frame.settled.includes(id) ? m.mint : Number.isFinite(frame.distance[id]) ? m.sand : m.paper;

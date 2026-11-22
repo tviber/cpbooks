@@ -1,5 +1,7 @@
-import { STOPS, ROADS, routeTo, roadInk } from '../lessons/dijkstra.js';
+import { STOPS, ROADS, roadInk } from '../lessons/dijkstra.js';
 import { timeLabel } from './dijkstra-view.js';
+
+const names = Object.fromEntries(STOPS.map(({ id, name }) => [id, name]));
 
 // Labels stay in screen pixels, even when a class is watching on a phone.
 export class MapSigns {
@@ -34,8 +36,7 @@ export class MapSigns {
     });
   }
 
-  update(frame, inspected) {
-    const route = inspected ? routeTo(frame, inspected) : null;
+  update({ frame, roads, inspected, route }) {
     this.stops.forEach((button, i) => {
       const { id, name } = STOPS[i];
       const value = frame.distance[id];
@@ -51,7 +52,12 @@ export class MapSigns {
       else number.textContent = `${fixed ? '✓ ' : ''}${timeLabel(value)}`;
     });
     this.weights.forEach((tag, i) => {
-      const ink = roadInk(ROADS[i], frame, route);
+      const road = roads[i];
+      const changed = road.minutes !== ROADS[i].minutes;
+      const ink = roadInk(road, frame, route);
+      tag.textContent = road.minutes;
+      tag.classList.toggle('changed-weight', changed);
+      tag.setAttribute('aria-label', `${names[road.from]}到${names[road.to]}，${road.minutes}分钟${changed ? `，平日${ROADS[i].minutes}分钟` : ''}`);
       tag.dataset.ink = ink;
       this.flatLines?.[i].setAttribute('class', ink);
     });

@@ -16,6 +16,16 @@ export const ROADS = [
   { from: 'books', to: 'pier', minutes: 2 },
 ];
 
+// Each variation changes just one weight so its effect can be isolated.
+export const MAP_SCENARIOS = [
+  { id: 'everyday', name: '平日街道' },
+  { id: 'riverside', name: '河岸便道', change: { from: 'garden', to: 'pier', minutes: 2 } },
+  { id: 'clock', name: '钟楼快线', change: { from: 'post', to: 'clock', minutes: 1 } },
+  { id: 'tie', name: '两路同速', change: { from: 'garden', to: 'pier', minutes: 4 } },
+];
+
+export const connects = (road, a, b) => road.from === a && road.to === b || road.from === b && road.to === a;
+
 // Keep a snapshot in each frame so stepping back restores the old paths and times.
 export function dijkstraFrames(stops, roads, source) {
   const neighbors = new Map(stops.map(({ id }) => [id, []]));
@@ -69,22 +79,55 @@ export function routeTo(frame, destination) {
   return route.reverse();
 }
 
+// After Dijkstra finishes, a shortest path can only enter v from a neighbour u
+// for which d[u] + w == d[v]. Visit the recorded parent first to match the tree.
+export function shortestRoutesTo(frame, roads, destination) {
+  if (!Number.isFinite(frame.distance[destination])) return [];
+  const routes = [];
+  function walk(id, suffix) {
+    const path = [id, ...suffix];
+    if (id === frame.source) { routes.push(path); return; }
+    const parents = [];
+    for (const { from, to, minutes } of roads) {
+      const neighbour = from === id ? to : to === id ? from : null;
+      // Only simple paths: zero-minute cycles must not repeat a station.
+      if (neighbour === null || path.includes(neighbour) || frame.distance[neighbour] + minutes !== frame.distance[id]) continue;
+      if (neighbour === frame.previous[id]) parents.unshift(neighbour);
+      else parents.push(neighbour);
+    }
+    for (const parent of parents) walk(parent, path);
+  }
+  walk(destination, []);
+  return routes;
+}
+
 // Shared by the paper roads, their labels and the flat map. null means no selection;
 // an empty selected route means that this station hasn't been reached yet.
 export function roadInk(road, frame, inspectedRoute = null) {
-  const connects = (a, b) => road.from === a && road.to === b || road.to === a && road.from === b;
   if (inspectedRoute !== null) {
-    return inspectedRoute.some((stop, i) => i > 0 && connects(inspectedRoute[i - 1], stop)) ? 'traced' : 'idle';
+    return inspectedRoute.some((stop, i) => i > 0 && connects(road, inspectedRoute[i - 1], stop)) ? 'traced' : 'idle';
   }
   if (frame.kind === 'road') {
-    if (connects(frame.from, frame.to)) return frame.improved ? 'traced' : 'rejected';
-    if (frame.improved && connects(frame.oldParent, frame.to)) return 'replaced';
+    if (connects(road, frame.from, frame.to)) return frame.improved ? 'traced' : frame.proposed === frame.old ? 'equal' : 'rejected';
+    if (frame.improved && connects(road, frame.oldParent, frame.to)) return 'replaced';
   }
-  const child = [road.from, road.to].find(id => connects(frame.previous[id], id));
+  const child = [road.from, road.to].find(id => connects(road, frame.previous[id], id));
   if (child === undefined) return 'idle';
   return frame.settled.includes(child) ? 'fixed' : 'candidate';
 }
 
-export function createMapLesson(source = 'post') {
-  return { source, frames: dijkstraFrames(STOPS, ROADS, source), index: 0, playing: false, inspected: null };
+export function createMapLesson(source = 'post', scenarioId = 'everyday') {
+  const scenario = MAP_SCENARIOS.find(s => s.id === scenarioId) ?? MAP_SCENARIOS[0];
+  const change = scenario.change;
+  const roads = ROADS.map(road => change && connects(road, change.from, change.to) ? { ...road, minutes: change.minutes } : road);
+  return { source, scenario, roads, frames: dijkstraFrames(STOPS, roads, source), index: 0, playing: false, inspected: null,
+    comparing: false, target: source === 'pier' ? 'post' : 'pier', routeIndex: 0 };
+}
+
+export function mapDisplay(lesson) {
+  const { roads, frames, index, comparing, routeIndex } = lesson;
+  const frame = comparing ? frames.at(-1) : frames[index];
+  const inspected = comparing ? lesson.target : lesson.inspected;
+  const routes = !inspected ? [] : frame.kind === 'finish' ? shortestRoutesTo(frame, roads, inspected) : [routeTo(frame, inspected)];
+  return { frame, roads, inspected, routes, route: inspected ? routes[routeIndex] ?? routes[0] ?? [] : null };
 }

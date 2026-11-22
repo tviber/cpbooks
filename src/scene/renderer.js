@@ -171,7 +171,7 @@ export class BookScene {
     this.signs = null;
   }
 
-  setMap(frame, inspected, signs) {
+  setMap(display, signs) {
     if (this.mode !== 'map') {
       this.clear();
       this.mode = 'map';
@@ -186,7 +186,7 @@ export class BookScene {
         return { horizontal: (1 + v.x) * 50, vertical: (1 - v.y) * 50 };
       };
     }
-    this.town.update(frame, inspected, this.reducedMotion);
+    this.town.update(display, this.reducedMotion);
   }
 
   updatePointer(event) {

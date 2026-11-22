@@ -6,7 +6,7 @@ import { shell } from './ui/shared.js';
 import { vectorView } from './ui/vector-view.js';
 import { binaryView } from './ui/binary-view.js';
 import { studioView } from './ui/studio-view.js';
-import { createMapLesson } from './lessons/dijkstra.js';
+import { createMapLesson, MAP_SCENARIOS, mapDisplay } from './lessons/dijkstra.js';
 import { dijkstraView, mapHelp } from './ui/dijkstra-view.js';
 import { MapSigns } from './ui/map-signs.js';
 
@@ -16,15 +16,30 @@ const chapters = {
   dijkstra: { title: 'Dijkstra 最短路', folio: '03 · Dijkstra 最短路' },
 };
 function chapterFromHash() {
-  const key = location.hash.slice(1);
+  const key = location.hash.slice(1).split('/')[0];
   return Object.hasOwn(chapters, key) ? key : 'vector';
+}
+
+function mapFromHash() {
+  if (chapterFromHash() !== 'dijkstra') return createMapLesson();
+  const [, scenario, mode] = location.hash.slice(1).split('/');
+  const lesson = createMapLesson('post', scenario);
+  lesson.comparing = mode === 'compare';
+  return lesson;
+}
+
+function syncChapterLink() {
+  const { scenario, comparing } = model.map;
+  const variant = model.chapter === 'dijkstra' && (scenario.id !== 'everyday' || comparing);
+  const suffix = variant ? `/${scenario.id}${comparing ? '/compare' : ''}` : '';
+  history.replaceState(null, '', `#${model.chapter}${suffix}`);
 }
 
 const STORAGE_KEY = 'lessonProgress';
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch { saved = {}; }
 const model = {
-  chapter: chapterFromHash(), map: createMapLesson(),
+  chapter: chapterFromHash(), map: mapFromHash(),
   vector: createVector(), vectorHistory: [], vectorChallenge: false,
   vectorMilestones: { inspected: false, filled: false, migrated: false, reserved: false },
   nextValue: 48, reserveValue: 8, selectedIndex: null, prediction: null,
@@ -37,6 +52,9 @@ const model = {
 document.querySelector('#app').innerHTML = shell();
 const elements = Object.fromEntries(['lesson-title', 'lesson-subtitle', 'stats', 'controls', 'accessible-model', 'lesson-panel', 'code', 'code-caption', 'explanation', 'settings', 'feedback', 'drawer-feedback', 'drawer-chapter', 'progress-summary'].map(id => [id, document.getElementById(id)]));
 const drawer = document.getElementById('study-drawer');
+const mapSwitches = document.getElementById('map-switches');
+const scenarioSelect = document.getElementById('map-scenario');
+scenarioSelect.replaceChildren(...MAP_SCENARIOS.map(({ id, name }) => new Option(name, id)));
 let scene;
 try {
   scene = new BookScene(document.getElementById('scene'), action => {
@@ -63,6 +81,7 @@ function showMapStep(index, autoplay = false) {
   const lesson = model.map;
   lesson.index = Math.min(lesson.frames.length - 1, Math.max(0, index));
   lesson.inspected = null;
+  lesson.routeIndex = 0;
   lesson.playing = autoplay && lesson.index < lesson.frames.length - 1;
   render();
   drawCurrent();
@@ -71,9 +90,25 @@ function showMapStep(index, autoplay = false) {
 
 function inspectStop(id) {
   stopPlayback();
-  model.map.inspected = model.map.inspected === id ? null : id;
+  const lesson = model.map;
+  if (lesson.comparing) lesson.target = id;
+  else {
+    lesson.inspected = lesson.inspected === id ? null : id;
+    if (lesson.inspected) lesson.target = id;
+  }
+  lesson.routeIndex = 0;
   render();
   drawCurrent();
+}
+
+function changeMapExample(source, scenarioId) {
+  const previous = model.map;
+  stopPlayback();
+  model.map = createMapLesson(source, scenarioId);
+  model.map.comparing = previous.comparing;
+  model.map.target = previous.source !== source && previous.target === source ? previous.source : previous.target;
+  syncChapterLink();
+  showMapStep(0);
 }
 
 function persistAchievement(chapter) {
@@ -86,7 +121,8 @@ function render() {
   const focusedAction = document.activeElement?.dataset.action;
   const focusedIndex = document.activeElement?.dataset.index;
   const isMap = model.chapter === 'dijkstra';
-  const detail = isMap ? dijkstraView(model.map) : model.chapter === 'vector' ? vectorView(model) : binaryView(model);
+  const display = isMap ? mapDisplay(model.map) : null;
+  const detail = isMap ? dijkstraView(model.map, display) : model.chapter === 'vector' ? vectorView(model) : binaryView(model);
   const view = isMap ? detail : studioView(model, detail);
   elements['lesson-title'].textContent = view.title;
   elements['lesson-subtitle'].textContent = view.subtitle;
@@ -108,8 +144,13 @@ function render() {
   elements['progress-summary'].hidden = isMap;
   document.querySelector('.studio').dataset.mode = model.chapter === 'binary' ? model.binaryMode : model.chapter;
   signs.layer.hidden = !isMap;
+  mapSwitches.hidden = !isMap;
   document.querySelector('.scene-hint').textContent = isMap ? '圆牌 · 路段用时　方牌 · 总用时（分）' : '拖动旋转 · 双指缩放';
-  if (isMap) signs.update(model.map.frames[model.map.index], model.map.inspected);
+  if (isMap) {
+    scenarioSelect.value = model.map.scenario.id;
+    document.getElementById('map-compare').textContent = model.map.comparing ? '返回推演' : '比较路线';
+    signs.update(display);
+  }
   document.querySelectorAll('[data-action="chapter"]').forEach(button => {
     button.classList.toggle('active', button.dataset.chapter === model.chapter);
     button.setAttribute('aria-current', button.dataset.chapter === model.chapter ? 'page' : 'false');
@@ -156,7 +197,7 @@ function openDrawer(tab) {
 }
 
 function drawCurrent(animate = false, previousRange = null) {
-  if (model.chapter === 'dijkstra') return scene?.setMap(model.map.frames[model.map.index], model.map.inspected, signs);
+  if (model.chapter === 'dijkstra') return scene?.setMap(mapDisplay(model.map), signs);
   if (model.chapter === 'vector') return scene?.setVector(model.vector);
   const exploring = model.binaryMode === 'explore';
   const state = exploring ? { ...model.binary, lo: 0, hi: Math.max(...model.binary.heights), done: false, answer: null } : model.binary;
@@ -174,7 +215,7 @@ function changeChapter(chapter) {
   if (model.busy || !Object.hasOwn(chapters, chapter)) return;
   stopPlayback();
   model.chapter = chapter;
-  history.replaceState(null, '', `#${chapter}`);
+  syncChapterLink();
   render();
   drawCurrent();
   scene?.reopen();
@@ -303,7 +344,7 @@ document.addEventListener('click', async event => {
       case 'drawer-tab': selectDrawerTab(button.dataset.tab); break;
       case 'close-drawer': drawer.close(); break;
       case 'reset-current':
-        if (model.chapter === 'dijkstra') showMapStep(0);
+        if (model.chapter === 'dijkstra') { model.map.comparing = false; syncChapterLink(); showMapStep(0); }
         else if (model.chapter === 'vector') resetVector(model.vectorChallenge);
         else resetBinary();
         break;
@@ -315,6 +356,25 @@ document.addEventListener('click', async event => {
       case 'map-next': showMapStep(model.map.index + 1); break;
       case 'map-back': showMapStep(model.map.index - 1); break;
       case 'map-inspect': inspectStop(button.dataset.stop); break;
+      case 'map-compare': {
+        stopPlayback();
+        const lesson = model.map;
+        lesson.comparing = !lesson.comparing;
+        lesson.routeIndex = 0;
+        syncChapterLink();
+        render();
+        drawCurrent();
+        break;
+      }
+      case 'map-alternate': {
+        const count = mapDisplay(model.map).routes.length;
+        if (count > 1) {
+          model.map.routeIndex = (model.map.routeIndex + 1) % count;
+          render();
+          drawCurrent();
+        }
+        break;
+      }
       case 'reopen': scene?.reopen(); break;
       case 'manual': openManual(); break;
       case 'close-manual': document.getElementById('manual').close(); break;
@@ -435,13 +495,20 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('change', event => {
+  if (event.target.id === 'map-scenario') { changeMapExample(model.map.source, event.target.value); return; }
+  if (event.target.id === 'map-target') { inspectStop(event.target.value); return; }
   if (event.target.id === 'map-source') {
-    model.map = createMapLesson(event.target.value);
+    const source = event.target.value;
     drawer.close();
-    showMapStep(0);
+    changeMapExample(source, model.map.scenario.id);
     return;
   }
-  if (event.target.id === 'map-seek') { showMapStep(Number(event.target.value) - 1); return; }
+  if (event.target.id === 'map-seek') {
+    model.map.comparing = false;
+    syncChapterLink();
+    showMapStep(Number(event.target.value) - 1);
+    return;
+  }
   if (event.target.id !== 'scenario-select') return;
   model.scenarioIndex = Number(event.target.value);
   const problem = SCENARIOS[model.scenarioIndex];
@@ -474,7 +541,11 @@ document.addEventListener('keydown', event => {
     document.getElementById(`${tabs[next]}-tab`).focus();
   }
 });
-window.addEventListener('hashchange', () => changeChapter(chapterFromHash()));
+window.addEventListener('hashchange', () => {
+  const chapter = chapterFromHash();
+  if (chapter === 'dijkstra') model.map = mapFromHash();
+  changeChapter(chapter);
+});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && model.map.playing) { stopPlayback(); render(); }
 });

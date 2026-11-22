@@ -32,6 +32,7 @@ export function shell() {
   </header>
   <main class="studio">
     <section class="intro" aria-labelledby="lesson-title"><h1 id="lesson-title"></h1><p id="lesson-subtitle"></p></section>
+    <div class="map-switches" id="map-switches" hidden><label for="map-scenario">路况</label><select id="map-scenario" name="map-scenario"></select><button id="map-compare" data-action="map-compare">比较路线</button></div>
     <div id="stats" class="live-stats" aria-label="当前状态"></div>
     <section class="scene-wrap" aria-label="立体书实验台"><div id="scene" class="scene"></div></section>
     <div class="interaction-area">
