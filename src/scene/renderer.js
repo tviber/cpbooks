@@ -172,12 +172,13 @@ export class BookScene {
   }
 
   setMap(display, signs) {
-    if (this.mode !== 'map') {
+    if (this.mode !== 'map' || this.mapTheme !== display.scenario.id) {
       this.clear();
       this.mode = 'map';
+      this.mapTheme = display.scenario.id;
       this.scenery.visible = false;
       this.sawDraggable = false;
-      this.town = buildTown(this.dynamic, this.materials.materials, this.picks);
+      this.town = buildTown(this.dynamic, this.materials.materials, this.picks, this.mapTheme);
       this.signs = signs;
       this.mapProjectionDirty = true;
       this.projectedPoint = new THREE.Vector3();

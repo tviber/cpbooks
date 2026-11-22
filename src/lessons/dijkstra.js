@@ -1,10 +1,7 @@
 // Road weights are minutes on an undirected road, independent of its drawn length.
 export const STOPS = [
-  { id: 'post', name: '邮局', x: -4.38, z: -0.10 },
-  { id: 'clock', name: '钟楼', x: -1.65, z: -2.13 },
-  { id: 'garden', name: '花园', x: -1.47, z: 1.88 },
-  { id: 'books', name: '书店', x: 1.73, z: -1.96 },
-  { id: 'pier', name: '码头', x: 4.13, z: 1.28 },
+  { id: 'post', name: '邮局' }, { id: 'clock', name: '钟楼' },
+  { id: 'garden', name: '花园' }, { id: 'books', name: '书店' }, { id: 'pier', name: '码头' },
 ];
 export const ROADS = [
   { from: 'post', to: 'clock', minutes: 7 },
@@ -18,10 +15,10 @@ export const ROADS = [
 
 // Each variation changes just one weight so its effect can be isolated.
 export const MAP_SCENARIOS = [
-  { id: 'everyday', name: '平日街道' },
-  { id: 'riverside', name: '河岸便道', change: { from: 'garden', to: 'pier', minutes: 2 } },
-  { id: 'clock', name: '钟楼快线', change: { from: 'post', to: 'clock', minutes: 1 } },
-  { id: 'tie', name: '两路同速', change: { from: 'garden', to: 'pier', minutes: 4 } },
+  { id: 'everyday', name: '集市街区' },
+  { id: 'riverside', name: '滨河栈道', via: '走栈道', change: { from: 'garden', to: 'pier', minutes: 2 } },
+  { id: 'clock', name: '钟楼车站', via: '走快线', change: { from: 'post', to: 'clock', minutes: 1 } },
+  { id: 'tie', name: '双桥河谷', via: '过吊桥', change: { from: 'garden', to: 'pier', minutes: 4 } },
 ];
 
 export const connects = (road, a, b) => road.from === a && road.to === b || road.from === b && road.to === a;
@@ -129,5 +126,5 @@ export function mapDisplay(lesson) {
   const frame = comparing ? frames.at(-1) : frames[index];
   const inspected = comparing ? lesson.target : lesson.inspected;
   const routes = !inspected ? [] : frame.kind === 'finish' ? shortestRoutesTo(frame, roads, inspected) : [routeTo(frame, inspected)];
-  return { frame, roads, inspected, routes, route: inspected ? routes[routeIndex] ?? routes[0] ?? [] : null };
+  return { scenario: lesson.scenario, frame, roads, inspected, routes, route: inspected ? routes[routeIndex] ?? routes[0] ?? [] : null };
 }

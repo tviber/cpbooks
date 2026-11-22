@@ -1,5 +1,7 @@
 import { STOPS, ROADS, roadInk } from '../lessons/dijkstra.js';
 import { timeLabel } from './dijkstra-view.js';
+import { pointOnPath, roadPath, townLayout } from '../scene/town-layouts.js';
+import { flatPoint, flatTerrain } from './flat-town.js';
 
 const names = Object.fromEntries(STOPS.map(({ id, name }) => [id, name]));
 
@@ -11,7 +13,6 @@ export class MapSigns {
     this.layer.setAttribute('role', 'group');
     this.layer.setAttribute('aria-label', '小镇地图，路段和站牌的用时单位为分钟');
     container.appendChild(this.layer);
-    this.items = [];
     this.stops = STOPS.map(stop => {
       const button = document.createElement('button');
       button.className = 'station-sign';
@@ -19,24 +20,46 @@ export class MapSigns {
       button.dataset.stop = stop.id;
       button.innerHTML = `<span>${stop.name}</span><b></b>`;
       this.layer.appendChild(button);
-      this.items.push({ element: button, x: stop.x, y: .12, z: stop.z + .76 });
       return button;
     });
-    this.weights = ROADS.map(road => {
-      const a = STOPS.find(s => s.id === road.from), b = STOPS.find(s => s.id === road.to);
+    this.weights = ROADS.map(() => {
       const tag = document.createElement('span');
       tag.className = 'road-weight';
-      tag.textContent = road.minutes;
-      tag.setAttribute('aria-label', `${a.name}到${b.name}，${road.minutes}分钟`);
       this.layer.appendChild(tag);
-      // Leave room for the clock's two values on the narrow phone layout.
-      const t = a.id === 'post' && b.id === 'clock' ? .33 : .5;
-      this.items.push({ element: tag, x: a.x + (b.x - a.x) * t, y: .08, z: a.z + (b.z - a.z) * t });
       return tag;
     });
   }
 
-  update({ frame, roads, inspected, route }) {
+  setLayout(scenario) {
+    if (this.theme === scenario.id) return;
+    this.theme = scenario.id;
+    const layout = townLayout(this.theme);
+    this.layer.setAttribute('aria-label', `${scenario.name}地图，路段和站牌的用时单位为分钟`);
+    this.items = STOPS.map(({ id }, i) => {
+      const [x, z] = layout.stops[id];
+      const [dx, dz] = this.svg ? [0, 0] : layout.signOffsets?.[id] ?? [0, .78];
+      return { element: this.stops[i], x: x + dx, y: .27, z: z + dz };
+    });
+    const paths = ROADS.map(({ from, to }, i) => {
+      const path = roadPath(layout, from, to);
+      const [x,z] = pointOnPath(path, layout.labels[`${from}-${to}`] ?? .5);
+      this.items.push({ element: this.weights[i], x, y: .23, z });
+      return path;
+    });
+    if (this.svg) {
+      this.svg.innerHTML = flatTerrain(this.theme);
+      this.flatLines = paths.map(path => {
+        const line = document.createElementNS(this.svg.namespaceURI, 'polyline');
+        line.setAttribute('points', path.map(p => p.join(',')).join(' '));
+        this.svg.appendChild(line);
+        return line;
+      });
+      this.project(flatPoint);
+    }
+  }
+
+  update({ scenario, frame, roads, inspected, route }) {
+    this.setLayout(scenario);
     this.stops.forEach((button, i) => {
       const { id, name } = STOPS[i];
       const value = frame.distance[id];
@@ -73,23 +96,12 @@ export class MapSigns {
 
   // The same controls and state also work without a graphics context.
   useFlatMap() {
-    const project = (x, y, z) => ({ horizontal: 50 + x * 8, vertical: 48 + z * 12 });
     this.layer.classList.add('flat-map');
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('viewBox', '-6 -3.7 12 7.4');
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.setAttribute('aria-hidden', 'true');
-    this.flatLines = ROADS.map(({ from, to }) => {
-      const a = STOPS.find(s => s.id === from), b = STOPS.find(s => s.id === to);
-      const v = project(a.x,0,a.z), w = project(b.x,0,b.z);
-      const line = document.createElementNS(svg.namespaceURI, 'line');
-      for (const [key, value] of Object.entries({ x1: v.horizontal, y1: v.vertical, x2: w.horizontal, y2: w.vertical })) line.setAttribute(key, value);
-      svg.appendChild(line);
-      return line;
-    });
+    this.svg = svg;
     this.layer.prepend(svg);
-    // A flat station sits directly on its road junction.
-    this.stops.forEach((_, i) => { this.items[i].z = STOPS[i].z; });
-    this.project(project);
   }
 }

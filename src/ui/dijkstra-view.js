@@ -83,7 +83,7 @@ export function dijkstraView(lesson, display = mapDisplay(lesson)) {
   const done = index === frames.length - 1;
   const change = scenario.change;
   const was = change && ROADS.find(road => connects(road, change.from, change.to)).minutes;
-  const subtitle = change ? `${names[change.from]}到${names[change.to]}：平日 ${was} 分钟，现在 ${change.minutes} 分钟。` : `从${names[source]}出发，比较到各站的最短时间。`;
+  const subtitle = change ? `${names[change.from]}到${names[change.to]}${scenario.via}，${was} → ${change.minutes} 分钟。` : `从${names[source]}出发，比较到各站的最短时间。`;
   const travelTimes = (route ?? []).slice(1).map((id, i) => roads.find(road => connects(road, route[i], id)).minutes);
   let message = step.message;
   if (inspected) {
@@ -98,7 +98,7 @@ export function dijkstraView(lesson, display = mapDisplay(lesson)) {
     return `<tr><th scope="row">${name}</th><td>${timeLabel(value)}</td><td>${frame.previous[id] ? names[frame.previous[id]] : '—'}</td><td>${status}</td></tr>`;
   }).join('');
   return {
-    title: '小镇里的最短路。',
+    title: `${scenario.name}的最短路。`,
     subtitle: `Dijkstra · ${subtitle}`,
     stats: `<span class="map-count">${comparing ? `最短 <strong>${frame.distance[inspected]}</strong> 分钟` : `已确定 <strong>${frame.settled.length}<small> / ${STOPS.length}</small></strong> 站`}</span>`,
     controls: comparing ? `<div class="map-step"><small>${names[source]} → ${names[inspected]}</small><strong>${routes.length > 1 ? `${routes.length} 条并列最短路` : '最短路线'}</strong></div>
@@ -115,8 +115,8 @@ export function dijkstraView(lesson, display = mapDisplay(lesson)) {
     explanation: `<div class="panel-heading"><h2>为什么可以盖章？</h2></div>
       <p>站牌上写的是从起点出发、目前找到的最短时间。每轮在所有还没盖章的站里，选时间最小的一个。</p>
       <p>起点先盖章。之后，沿任意一条路线，找出第一个还没盖章的站。它的前一站已盖章，也检查过通往它的路，所以走到这里已经至少花了这个站牌上的时间。这个数至少等于本轮最小值，再走非负的路段也不会变小。</p>
-      <details><summary>什么是松弛？</summary><p>已走时间加上下一段路的时间，如果比邻站的记录更小，就同时改写它的时间和上一站。例如在「平日街道」，从邮局直达钟楼要 7 分钟，经过花园只要 2 + 1 = 3 分钟。</p></details>
-      <details><summary>为什么会有并列的最短路？</summary><p>不同路线的路段用时之和可以相等。在「两路同速」，从花园直达码头要 4 分钟，经过书店也是 2 + 2 = 4 分钟。两条都是最短路。</p><p>C++ 示例的 parent 只保留一种走法。比较路线时，从终点沿满足 dist[u] + w = dist[v] 的道路反向找回起点，就能看到其他等长的走法。</p></details>
+      <details><summary>什么是松弛？</summary><p>已走时间加上下一段路的时间，如果比邻站的记录更小，就同时改写它的时间和上一站。在集市里，从邮局直达钟楼要 7 分钟，经过花园只要 2 + 1 = 3 分钟。</p></details>
+      <details><summary>为什么会有并列的最短路？</summary><p>在双桥河谷，从花园过吊桥直达码头要 4 分钟，绕经书店再走桁架桥也是 2 + 2 = 4 分钟。两条都是最短路。</p><p>C++ 示例的 parent 只保留一种走法。比较路线时，从终点沿满足 dist[u] + w = dist[v] 的道路反向找回起点，就能看到其他等长的走法。</p></details>
       <details><summary>不同的图也适用吗？</summary><p>道路可以单向，边权可以为 0。若有负权，这个盖章规则就失去保证。不可达的站保留 ∞。多个候选时间相同时任选其一，都能得到正确距离。</p><p>本页线性扫描选站，耗时 O(V² + E)。稀疏图常用最小堆加速选站。</p></details>`,
     panel: `<h3>这一刻的站牌</h3><table><thead><tr><th>站点</th><th>总用时 / 分</th><th>记录的上一站</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>`,
     settings: `<div class="settings-group"><h3>换个起点看地图</h3><label>出发站<select id="map-source">${stopOptions(source)}</select></label></div>
@@ -128,5 +128,5 @@ export function dijkstraView(lesson, display = mapDisplay(lesson)) {
 export const mapHelp = `<p class="manual-lead">用下一步翻看路线，用上一步比较改写前的站牌。</p>
   <ol><li><strong>读地图。</strong>圆牌是走一段路的分钟数。方形站牌是从起点到这里的总分钟数，∞ 表示还没找到路线，✓ 表示最短时间已确定。</li>
   <li><strong>看路线。</strong>橙色标出正在比较的道路。点地标或站牌可以查看当前走法，再点一次返回演示。</li>
-  <li><strong>比较路况。</strong>选择「比较路线」后换路况，地图会保留起点和终点。有并列最短路时可以逐条切换，查看每段用时。选择「返回推演」继续逐步演示。</li>
+  <li><strong>比较场景。</strong>选择「比较路线」后切换场景，可以看到同一起点和终点之间的不同走法。有并列最短路时，点「换条走法」查看每段用时。</li>
   <li><strong>换起点。</strong>实验设置里可以从其他站重新出发，也可以跳到某一步。打开讲解可以对照这一刻的站牌和 C++ 代码。</li></ol>`;

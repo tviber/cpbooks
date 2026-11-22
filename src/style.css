@@ -374,7 +374,7 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
 .road-weight[data-ink='fixed'] { color: #fff; background: #55734c; border-color: #55734c; }
 .flat-map { inset: 3% 4%; background: #f3e8cf; border: 3px solid #577052; border-radius: 5px; box-shadow: 0 8px 14px #34432a16; }
 .flat-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.flat-map line { stroke: #bbaa89; stroke-width: 3px; vector-effect: non-scaling-stroke; }
+.flat-map polyline { fill: none; stroke: #a68a68; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3px; vector-effect: non-scaling-stroke; }
 .flat-map .traced { stroke: var(--rust); stroke-width: 5px; }
 .flat-map .rejected { stroke: var(--rust); stroke-dasharray: 5 3; }
 .flat-map .replaced { stroke-dasharray: 3 3; }
@@ -384,6 +384,10 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
 .studio[data-mode='dijkstra'] .scene-fallback { display: none; }
 .studio[data-mode='dijkstra'] .scene-hint { max-width: 230px; line-height: 1.8; }
 .studio[data-mode='dijkstra'] .feedback { font-size: 14px; }
+.studio[data-town='everyday'] { background: radial-gradient(ellipse at 50% 52%, #f6eadc 0, transparent 76%); }
+.studio[data-town='riverside'] { background: radial-gradient(ellipse at 50% 52%, #dcece6 0, transparent 76%); }
+.studio[data-town='clock'] { background: radial-gradient(ellipse at 50% 52%, #dfe7e9 0, transparent 76%); }
+.studio[data-town='tie'] { background: radial-gradient(ellipse at 50% 52%, #e8e1ea 0, transparent 76%); }
 .map-switches { position: absolute; z-index: 3; top: 38px; right: 4%; display: flex; gap: 8px; align-items: center; }
 .map-switches label, .route-choices label { color: #596353; font-size: 13px; }
 .map-switches select, .map-switches button { min-height: 38px; font-size: 14px; }

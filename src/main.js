@@ -142,7 +142,10 @@ function render() {
   elements['drawer-chapter'].textContent = chapters[model.chapter].folio;
   elements['progress-summary'].textContent = `已完成挑战 ${Number(model.achievements.vector) + Number(model.achievements.binary)} / 2 · 进度保存在此浏览器`;
   elements['progress-summary'].hidden = isMap;
-  document.querySelector('.studio').dataset.mode = model.chapter === 'binary' ? model.binaryMode : model.chapter;
+  const studio = document.querySelector('.studio');
+  studio.dataset.mode = model.chapter === 'binary' ? model.binaryMode : model.chapter;
+  if (isMap) studio.dataset.town = model.map.scenario.id;
+  else delete studio.dataset.town;
   signs.layer.hidden = !isMap;
   mapSwitches.hidden = !isMap;
   document.querySelector('.scene-hint').textContent = isMap ? '圆牌 · 路段用时　方牌 · 总用时（分）' : '拖动旋转 · 双指缩放';

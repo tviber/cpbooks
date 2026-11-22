@@ -4,6 +4,9 @@ export const COLORS = {
   paper: '#e5d7bb', cream: '#f0e6cf', edge: '#c5ad86', green: '#274c3b',
   mint: '#879f73', pale: '#b4c19d', ink: '#34473c', rust: '#ac5d3e',
   sand: '#cfad77', blue: '#93adb3', red: '#be715b', white: '#fffaf0',
+  clay: '#d5aa93', biscuit: '#e0bb7b', brick: '#904631', rose: '#de9581', mustard: '#dda748',
+  aqua: '#a4d1c6', turquoise: '#58aaa7', foam: '#dbebe1', coral: '#c95b43',
+  navy: '#2c5261', platform: '#bcc7cb', slate: '#8798a2', heath: '#c7bfaa', heather: '#948d9e', plum: '#655f77',
 };
 
 export function paperTexture() {
