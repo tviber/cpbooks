@@ -106,8 +106,8 @@ export function dijkstraView(lesson, display = mapDisplay(lesson)) {
       <div class="route-sum">${travelTimes.length > 1 ? `${travelTimes.join(' + ')} = ` : ''}<b>${frame.distance[inspected]}</b> 分钟</div>`
       : `<div class="map-step"><small>第 ${index + 1} / ${frames.length} 步</small><strong>${inspected ? `到${names[inspected]}的路线` : step.title}</strong></div>
       <div class="map-transport"><button id="map-back" data-action="map-back" ${index === 0 ? 'disabled' : ''}>上一步</button>
-      <button id="map-play" class="primary" data-action="map-play"><span class="play-symbol" aria-hidden="true">${playing ? 'Ⅱ' : '▶'}</span>${playing ? '暂停' : done ? '重新播放' : '自动演示'}</button>
-      ${done && routes.length > 1 ? `<button id="map-alternate" data-action="map-alternate">换条走法 ${routeIndex + 1}/${routes.length}</button>` : `<button id="map-next" data-action="map-next" ${done ? 'disabled' : ''}>下一步</button>`}</div>`,
+      <button id="map-play" class="${done ? 'primary' : ''}" data-action="map-play"><span class="play-symbol" aria-hidden="true">${playing ? 'Ⅱ' : '▶'}</span>${playing ? '暂停' : done ? '重新播放' : '自动演示'}</button>
+      ${done && routes.length > 1 ? `<button id="map-alternate" class="primary" data-action="map-alternate">换条走法 ${routeIndex + 1}/${routes.length}</button>` : `<button id="map-next" class="${done ? '' : 'primary'}" data-action="map-next" ${done ? 'disabled' : ''}>下一步</button>`}</div>`,
     message,
     codeCaption: comparing ? 'C++17 · 每站的 parent 只记录一种最短走法' : 'C++17 · 邻接表，线性扫描选出最近的一站',
     code: codeBlock(code, step.line),

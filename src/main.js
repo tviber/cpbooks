@@ -16,6 +16,19 @@ const chapters = {
 };
 
 function mapFromHash() {
+  if (!location.hash) {
+    try {
+      const last = JSON.parse(localStorage.getItem('dijkstra.last'));
+      const town = MAP_SCENARIOS.find(town => town.id === last?.scenario);
+      if (town?.stops.some(stop => stop.id === last.source)) {
+        const lesson = createMapLesson(town.id, last.source);
+        if (Number.isInteger(last.index)) lesson.index = Math.max(0, Math.min(last.index, lesson.frames.length - 1));
+        if (town.stops.some(stop => stop.id === last.target)) lesson.target = last.target;
+        lesson.comparing = last.comparing === true;
+        return lesson;
+      }
+    } catch { /* A new or unavailable local store starts at the first map. */ }
+  }
   const [chapter, scenario, mode] = location.hash.slice(1).split('/');
   if (chapter !== 'dijkstra') return createMapLesson();
   const lesson = createMapLesson(scenario);
@@ -49,7 +62,7 @@ const elements = Object.fromEntries(['lesson-title', 'lesson-subtitle', 'stats',
 const drawer = document.getElementById('study-drawer');
 const mapSwitches = document.getElementById('map-switches');
 const scenarioSelect = document.getElementById('map-scenario');
-scenarioSelect.replaceChildren(...MAP_SCENARIOS.map(({ id, name, stops }) => new Option(`${name} · ${stops.length} 站`, id)));
+scenarioSelect.append(...MAP_SCENARIOS.map(({ id, name, stops }) => new Option(`${name} · ${stops.length} 站`, id)));
 let scene;
 try {
   scene = new BookScene(document.getElementById('scene'), action => {
@@ -145,17 +158,18 @@ function render() {
   else delete studio.dataset.town;
   signs.layer.hidden = !isMap;
   mapSwitches.hidden = !isMap;
-  document.querySelector('.scene-hint').textContent = isMap ? '圆牌 · 路段用时　方牌 · 总用时（分）' : '拖动旋转 · 双指缩放';
+  const legend = '圆牌 · 路段用时　方牌 · 总用时（分）';
+  document.querySelector('.scene-hint').textContent = isMap ? (scene ? legend : `三维不可用，已切换平面地图。${legend}`) : '拖动旋转 · 双指缩放';
+  document.querySelector('[data-action="home"]').hidden = !scene;
   if (isMap) {
+    const { scenario, source, index, target, comparing } = model.map;
+    try { localStorage.setItem('dijkstra.last', JSON.stringify({ scenario: scenario.id, source, index, target, comparing })); } catch { /* Progress is optional. */ }
     scenarioSelect.value = model.map.scenario.id;
-    document.getElementById('map-compare').textContent = model.map.comparing ? '返回推演' : '比较路线';
+    const compareButton = document.getElementById('map-compare');
+    compareButton.textContent = model.map.comparing ? '返回推演' : '比较路线';
+    compareButton.setAttribute('aria-pressed', String(model.map.comparing));
     signs.update(display);
   }
-  document.querySelectorAll('[data-action="chapter"]').forEach(button => {
-    button.classList.toggle('active', button.dataset.chapter === model.chapter);
-    button.setAttribute('aria-current', button.dataset.chapter === model.chapter ? 'page' : 'false');
-    button.disabled = model.busy;
-  });
   if (model.busy) document.querySelectorAll('[data-action="choose-half"], [data-action="next-problem"]').forEach(button => { button.disabled = true; });
   document.querySelector('[data-action="reset-current"]').disabled = model.busy;
   selectDrawerTab(model.drawerTab);

@@ -23,14 +23,11 @@ export function codeBlock(lines, active = lines.length - 1) {
 export function shell() {
   return `<header class="site-header">
     <a class="brand" href="#dijkstra" aria-label="纸上算法首页">${icons.book}<span>纸上算法</span></a>
-    <nav class="chapter-nav" aria-label="选择章节">
-      <button data-action="chapter" data-chapter="dijkstra" aria-label="第一章 最短路"><span>01</span> 最短路</button>
-    </nav>
     <div class="header-tools"><button class="reading-button" data-action="drawer" data-tab="learn" aria-label="打开讲解与代码">${icons.code}<span>讲解与代码</span></button><button class="icon-button settings-button" data-action="drawer" data-tab="settings" title="实验设置" aria-label="实验设置">${icons.settings}</button></div>
   </header>
   <main class="studio">
     <section class="intro" aria-labelledby="lesson-title"><h1 id="lesson-title"></h1><p id="lesson-subtitle"></p></section>
-    <div class="map-switches" id="map-switches" hidden><label for="map-scenario">场景</label><select id="map-scenario" name="map-scenario"></select><button id="map-compare" data-action="map-compare">比较路线</button></div>
+    <div class="map-switches" id="map-switches" hidden><label for="map-scenario">场景</label><select id="map-scenario" name="map-scenario"><button><selectedcontent></selectedcontent></button></select><button id="map-compare" data-action="map-compare">比较路线</button></div>
     <div id="stats" class="live-stats" aria-label="当前状态"></div>
     <section class="scene-wrap" aria-label="立体书实验台"><div id="scene" class="scene"></div></section>
     <div class="interaction-area">
