@@ -448,6 +448,7 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
 .play-symbol { font-size: 12px; }
 @media (max-width: 700px) {
   .reading-button span { display: none; }
+  .site-header { grid-template-columns: 1fr auto; }
   .map-step { flex-basis: 100%; min-width: 0; border: none; padding: 0 6px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
   .map-step strong { font-size: 14px; }
   .map-transport { width: 100%; justify-content: space-around; }
@@ -472,21 +473,21 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
   }
   .studio[data-mode='dijkstra'] > * { position: static; grid-column: 1 / -1; }
   .studio[data-mode='dijkstra'] .intro h1 { font-size: 22px; line-height: 1.45; overflow-wrap: anywhere; }
-  .studio[data-mode='dijkstra'] .live-stats { justify-content: flex-end; }
-  .studio[data-mode='dijkstra'] .scene-wrap { height: 100%; min-height: 245px; }
-  .studio[data-mode='dijkstra'] .interaction-area { width: 100%; transform: none; }
+  .studio[data-mode='dijkstra'] .live-stats { grid-column: 2; justify-content: flex-end; }
+  .studio[data-mode='dijkstra'] .scene-wrap { grid-row: 4; height: 100%; min-height: 245px; }
+  .studio[data-mode='dijkstra'] .interaction-area { grid-row: 5; width: 100%; transform: none; }
   .studio[data-mode='dijkstra'] .control-dock:has(.route-choices) { min-height: 0; }
   .studio[data-mode='dijkstra'] .feedback { min-height: 3.2em; font-size: 13px; line-height: 1.6; }
-  .studio[data-mode='dijkstra'] .scene-hint { grid-column: 1; font-size: 11px; }
-  .studio[data-mode='dijkstra'] .scene-tools { grid-column: 2; }
+  .studio[data-mode='dijkstra'] .scene-hint { grid-row: 6; grid-column: 1; font-size: 11px; }
+  .studio[data-mode='dijkstra'] .scene-tools { grid-row: 6; grid-column: 2; }
   .station-sign { gap: 3px; min-height: 24px; padding: 2px 4px; font-size: 12px; }
   .station-sign b { min-width: 1em; padding-left: 3px; }
   .road-weight { width: 17px; font-size: 12px; }
 }
 @media (max-width: 370px) {
-  .map-switches { gap: 5px; }
-  .map-switches select, .map-switches button { font-size: 13px; }
-  .route-choices .primary { padding-inline: 9px; }
+  .studio[data-mode='dijkstra'] .map-switches { gap: 5px; }
+  .studio[data-mode='dijkstra'] .map-switches select, .studio[data-mode='dijkstra'] .map-switches button { font-size: 13px; padding-inline: 5px; }
+  .studio[data-mode='dijkstra'] .route-choices .primary { padding-inline: 9px; }
 }
 
 @media (hover: hover) and (pointer: fine) {

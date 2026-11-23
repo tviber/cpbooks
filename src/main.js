@@ -7,6 +7,7 @@ import { vectorView } from './ui/vector-view.js';
 import { binaryView } from './ui/binary-view.js';
 import { studioView } from './ui/studio-view.js';
 import { createMapLesson, mapDisplay } from './lessons/dijkstra.js';
+import { lessonForLocation } from './lessons/progress.js';
 import { MAP_SCENARIOS } from './lessons/towns.js';
 import { dijkstraView, mapHelp } from './ui/dijkstra-view.js';
 import { MapSigns } from './ui/map-signs.js';
@@ -15,39 +16,26 @@ const chapters = {
   dijkstra: { title: '第一章 · Dijkstra 最短路', folio: '第一章 · Dijkstra 最短路' },
 };
 
-function mapFromHash() {
-  if (!location.hash) {
-    try {
-      const last = JSON.parse(localStorage.getItem('dijkstra.last'));
-      const town = MAP_SCENARIOS.find(town => town.id === last?.scenario);
-      if (town?.stops.some(stop => stop.id === last.source)) {
-        const lesson = createMapLesson(town.id, last.source);
-        if (Number.isInteger(last.index)) lesson.index = Math.max(0, Math.min(last.index, lesson.frames.length - 1));
-        if (town.stops.some(stop => stop.id === last.target)) lesson.target = last.target;
-        lesson.comparing = last.comparing === true;
-        return lesson;
-      }
-    } catch { /* A new or unavailable local store starts at the first map. */ }
-  }
-  const [chapter, scenario, mode] = location.hash.slice(1).split('/');
-  if (chapter !== 'dijkstra') return createMapLesson();
-  const lesson = createMapLesson(scenario);
-  lesson.comparing = lesson.scenario.id === scenario && mode === 'compare';
-  return lesson;
+function saveLessonState() {
+  const { scenario, source, index, target, comparing, inspected, routeIndex } = model.map;
+  const dijkstra = { scenario: scenario.id, source, index, target, comparing, inspected, routeIndex };
+  try { localStorage.setItem('dijkstra.last', JSON.stringify(dijkstra)); } catch { /* Progress is optional. */ }
+  history.replaceState({ ...history.state, lessonHash: location.hash, dijkstra }, '');
 }
 
 function syncChapterLink() {
   const { scenario, comparing } = model.map;
   const variant = model.chapter === 'dijkstra' && (scenario.id !== 'everyday' || comparing);
   const suffix = variant ? `/${scenario.id}${comparing ? '/compare' : ''}` : '';
-  history.replaceState(null, '', `#${model.chapter}${suffix}`);
+  const hash = `#${model.chapter}${suffix}`;
+  if (location.hash !== hash) history.pushState(null, '', hash);
 }
 
 const STORAGE_KEY = 'lessonProgress';
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch { saved = {}; }
 const model = {
-  chapter: 'dijkstra', map: mapFromHash(),
+  chapter: 'dijkstra', map: lessonForLocation(),
   vector: createVector(), vectorHistory: [], vectorChallenge: false,
   vectorMilestones: { inspected: false, filled: false, migrated: false, reserved: false },
   nextValue: 48, reserveValue: 8, selectedIndex: null, prediction: null,
@@ -162,8 +150,7 @@ function render() {
   document.querySelector('.scene-hint').textContent = isMap ? (scene ? legend : `三维不可用，已切换平面地图。${legend}`) : '拖动旋转 · 双指缩放';
   document.querySelector('[data-action="home"]').hidden = !scene;
   if (isMap) {
-    const { scenario, source, index, target, comparing } = model.map;
-    try { localStorage.setItem('dijkstra.last', JSON.stringify({ scenario: scenario.id, source, index, target, comparing })); } catch { /* Progress is optional. */ }
+    saveLessonState();
     scenarioSelect.value = model.map.scenario.id;
     const compareButton = document.getElementById('map-compare');
     compareButton.textContent = model.map.comparing ? '返回推演' : '比较路线';
@@ -176,7 +163,9 @@ function render() {
   if (focusedId) document.getElementById(focusedId)?.focus({ preventScroll: true });
   else if (drawer.open && focusedAction === 'inspect') drawer.querySelector(`[data-action="inspect"][data-index="${focusedIndex}"]`)?.focus({ preventScroll: true });
   else if (drawer.open && focusedAction === 'predict-vector') focusAction('predict-vector');
-  document.title = `纸上算法 · ${chapters[model.chapter].title}`;
+  document.title = isMap
+    ? `${model.map.scenario.name}的最短路 · 纸上算法`
+    : `纸上算法 · ${chapters[model.chapter].title}`;
 }
 
 function announce(message, error = false) {
@@ -349,9 +338,16 @@ document.addEventListener('click', async event => {
   const button = event.target.closest('[data-action]');
   if (!button || button.disabled) return;
   const { action } = button.dataset;
-  if (model.busy && !['home', 'drawer', 'drawer-tab', 'close-drawer', 'manual', 'close-manual'].includes(action)) return;
+  if (model.busy && !['home', 'home-page', 'drawer', 'drawer-tab', 'close-drawer', 'manual', 'close-manual'].includes(action)) return;
   try {
     switch (action) {
+      case 'home-page':
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        stopPlayback();
+        if (location.hash) history.pushState(null, '', button.href);
+        render();
+        break;
       case 'chapter': changeChapter(button.dataset.chapter); break;
       case 'home': scene?.home(); break;
       case 'drawer': openDrawer(button.dataset.tab); break;
@@ -555,9 +551,13 @@ document.addEventListener('keydown', event => {
     document.getElementById(`${tabs[next]}-tab`).focus();
   }
 });
-window.addEventListener('hashchange', () => {
-  model.map = mapFromHash();
-  changeChapter('dijkstra');
+window.addEventListener('popstate', () => {
+  stopPlayback();
+  model.map = lessonForLocation();
+  model.chapter = 'dijkstra';
+  model.drawerTab = 'learn';
+  render();
+  drawCurrent();
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && model.map.playing) { stopPlayback(); render(); }
@@ -569,7 +569,6 @@ for (const dialog of [drawer, document.getElementById('manual')]) {
     if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close();
   });
 }
-syncChapterLink();
 render();
 drawCurrent();
 scene?.home();

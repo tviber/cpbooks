@@ -22,7 +22,7 @@ export function codeBlock(lines, active = lines.length - 1) {
 
 export function shell() {
   return `<header class="site-header">
-    <a class="brand" href="#dijkstra" aria-label="纸上算法首页">${icons.book}<span>纸上算法</span></a>
+    <a class="brand" href="/" data-action="home-page" aria-label="纸上算法首页">${icons.book}<span>纸上算法</span></a>
     <div class="header-tools"><button class="reading-button" data-action="drawer" data-tab="learn" aria-label="打开讲解与代码">${icons.code}<span>讲解与代码</span></button><button class="icon-button settings-button" data-action="drawer" data-tab="settings" title="实验设置" aria-label="实验设置">${icons.settings}</button></div>
   </header>
   <main class="studio">
