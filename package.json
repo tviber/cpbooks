@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "runner:build": "docker build -t cpbooks-dijkstra:1 runner",
+    "test:runner": "node --test tests/runner.integration.js",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",

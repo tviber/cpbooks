@@ -8,13 +8,13 @@ function browserState(hash, state = null, last = null) {
   globalThis.localStorage = { getItem: () => last == null ? null : JSON.stringify(last) };
 }
 
-test('returns home to the learner’s last step and comparison route', () => {
+test('remembers the town and mode but discards positions from an earlier execution', () => {
   browserState('', null, { scenario: 'tie', source: 'camp', index: 5, target: 'summit', comparing: true, routeIndex: 1 });
   const lesson = lessonForLocation();
   assert.equal(lesson.scenario.id, 'tie');
-  assert.equal(lesson.index, 5);
+  assert.equal(lesson.index, 0);
   assert.equal(lesson.comparing, true);
-  assert.equal(lesson.routeIndex, 1);
+  assert.equal(lesson.routeIndex, 0);
 });
 
 test('opens a fresh deep link at its declared map and mode', () => {
@@ -28,8 +28,8 @@ test('opens a fresh deep link at its declared map and mode', () => {
 test('restores each history snapshot only when its URL matches', () => {
   browserState('#dijkstra/tie/compare', { lessonHash: '#dijkstra/tie/compare', dijkstra: { scenario: 'tie', source: 'camp', index: 5, target: 'summit', comparing: true, routeIndex: 1 } });
   const previous = lessonForLocation();
-  assert.equal(previous.index, 5);
-  assert.equal(previous.routeIndex, 1);
+  assert.equal(previous.scenario.id, 'tie');
+  assert.equal(previous.comparing, true);
   browserState('#dijkstra/clock/compare', history.state);
   assert.equal(lessonForLocation().scenario.id, 'clock');
 });
