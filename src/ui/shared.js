@@ -26,7 +26,7 @@ export function shell() {
     <div class="header-tools"><button class="icon-button" data-action="drawer" aria-haspopup="dialog" aria-controls="study-drawer" title="播放设置" aria-label="播放设置">${icons.settings}</button></div>
   </header>
   <main class="studio" data-mode="dijkstra">
-    <section class="intro" aria-labelledby="lesson-title"><h1 id="lesson-title"></h1><p id="lesson-subtitle"></p></section>
+    <section class="intro" aria-labelledby="lesson-title"><h1 id="lesson-title" tabindex="-1"></h1><p id="lesson-subtitle"></p></section>
     <div class="map-switches" id="map-switches"><label for="map-scenario">场景</label><select id="map-scenario" name="map-scenario"><button><selectedcontent></selectedcontent></button></select><button id="map-compare" data-action="map-compare">比较路线</button></div>
     <div id="stats" class="live-stats" aria-label="当前状态"></div>
     <section class="scene-wrap" aria-label="立体书实验台"><div id="scene" class="scene"></div></section>

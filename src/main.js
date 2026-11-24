@@ -1,32 +1,42 @@
 import './style.css';
+import './ui/home.css';
+import { homeView } from './ui/home-view.js';
 import { BookScene } from './scene/renderer.js';
 import { createMapLesson, mapDisplay } from './lessons/dijkstra.js';
-import { lessonForLocation } from './lessons/progress.js';
+import { lastReadLesson, lessonForLocation } from './lessons/progress.js';
 import { MAP_SCENARIOS } from './lessons/towns.js';
 import { dijkstraView } from './ui/dijkstra-view.js';
 import { MapSigns } from './ui/map-signs.js';
 import { shell } from './ui/shared.js';
 
 const byId = id => document.getElementById(id);
-document.querySelector('#app').innerHTML = shell();
+document.querySelector('#app').innerHTML = shell() + homeView();
+const studio = document.querySelector('.studio');
+const bookHome = byId('book-home');
+const spread = bookHome.querySelector('.open-spread');
+const cover = bookHome.querySelector('.book-cover');
 const drawer = byId('study-drawer');
 const scenarioSelect = byId('map-scenario');
 scenarioSelect.append(...MAP_SCENARIOS.map(({ id, name, stops }) => new Option(`${name} · ${stops.length} 站`, id)));
-let lesson = lessonForLocation();
+let lesson;
 let timer;
 let scene;
-try {
-  scene = new BookScene(byId('scene'), action => {
-    if (action.type === 'stop') inspectStop(action.id);
-  });
-} catch (error) {
-  console.warn('WebGL scene unavailable:', error.message);
+let signs;
+
+function initializeScene() {
+  try {
+    scene = new BookScene(byId('scene'), action => {
+      if (lesson && action.type === 'stop') inspectStop(action.id);
+    });
+  } catch (error) {
+    console.warn('WebGL scene unavailable:', error.message);
+  }
+  signs = new MapSigns(byId('scene'));
+  if (!scene) signs.useFlatMap();
+  byId('scene').addEventListener('scene-error', event => { byId('feedback').textContent = event.detail; });
+  document.querySelector('[data-action="home"]').hidden = !scene;
+  document.querySelector('.scene-hint').textContent = `${scene ? '' : '平面地图 · '}圆牌 · 路段用时　方牌 · 总用时（分）`;
 }
-const signs = new MapSigns(byId('scene'));
-if (!scene) signs.useFlatMap();
-byId('scene').addEventListener('scene-error', event => { byId('feedback').textContent = event.detail; });
-document.querySelector('[data-action="home"]').hidden = !scene;
-document.querySelector('.scene-hint').textContent = `${scene ? '' : '平面地图 · '}圆牌 · 路段用时　方牌 · 总用时（分）`;
 
 function saveProgress() {
   const { scenario, source, index, target, comparing, inspected, routeIndex } = lesson;
@@ -35,10 +45,13 @@ function saveProgress() {
   history.replaceState({ ...history.state, lessonHash: location.hash, dijkstra }, '');
 }
 
-function syncLink() {
-  const { scenario, comparing } = lesson;
+function lessonLink({ scenario, comparing }) {
   const suffix = scenario.id !== 'everyday' || comparing ? `/${scenario.id}${comparing ? '/compare' : ''}` : '';
-  const hash = `#dijkstra${suffix}`;
+  return `#dijkstra${suffix}`;
+}
+
+function syncLink() {
+  const hash = lessonLink(lesson);
   if (location.hash !== hash) history.pushState(null, '', hash);
 }
 
@@ -66,7 +79,7 @@ function render() {
 
 function stopPlayback() {
   clearTimeout(timer);
-  lesson.playing = false;
+  if (lesson) lesson.playing = false;
 }
 
 function showStep(index, autoplay = false) {
@@ -109,8 +122,14 @@ document.addEventListener('click', event => {
       event.preventDefault();
       stopPlayback();
       if (location.hash) history.pushState(null, '', button.href);
-      render();
+      showLocation(true);
       break;
+    case 'resume-lesson': {
+      const saved = lastReadLesson();
+      history.pushState(null, '', saved ? lessonLink(saved) : '#dijkstra');
+      showLocation(true, saved);
+      break;
+    }
     case 'home': scene?.home(); break;
     case 'drawer': stopPlayback(); render(); drawer.showModal(); break;
     case 'close-drawer': drawer.close(); break;
@@ -150,9 +169,39 @@ drawer.addEventListener('click', event => {
   const rect = drawer.getBoundingClientRect();
   if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) drawer.close();
 });
-window.addEventListener('popstate', () => { stopPlayback(); lesson = lessonForLocation(); render(); });
+function showLocation(focus = false, saved = null) {
+  stopPlayback();
+  if (drawer.open) drawer.close();
+  const onBook = !location.hash || location.hash === '#contents';
+  const opening = location.hash === '#contents';
+  const enteringLesson = studio.hidden || !signs;
+  studio.hidden = onBook;
+  bookHome.hidden = !onBook;
+  document.querySelector('.header-tools').hidden = onBook;
+  if (onBook) {
+    lesson = null;
+    scene?.renderer.setAnimationLoop(null);
+    bookHome.classList.toggle('is-open', opening);
+    cover.inert = opening;
+    spread.inert = !opening;
+    if (opening) byId('resume-lesson').hidden = !lastReadLesson();
+    document.title = opening ? '第一章 · Dijkstra 最短路 · 纸上算法' : '纸上算法 · 互动立体书';
+    if (focus) (opening ? byId('contents-title') : bookHome.querySelector('.open-book')).focus({ preventScroll: true });
+    return;
+  }
+  lesson = saved ?? lessonForLocation();
+  if (!signs) initializeScene();
+  render();
+  if (enteringLesson && scene) {
+    scene.resize();
+    scene.home();
+    scene.reopen();
+    scene.renderer.setAnimationLoop(scene.frame);
+  }
+  if (focus && enteringLesson) byId('lesson-title').focus({ preventScroll: true });
+}
+window.addEventListener('popstate', () => showLocation(true));
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && lesson.playing) { stopPlayback(); render(); }
+  if (document.hidden && lesson?.playing) { stopPlayback(); render(); }
 });
-render();
-scene?.home();
+showLocation();

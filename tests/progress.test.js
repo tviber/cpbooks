@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lessonForLocation, restoreLesson } from '../src/lessons/progress.js';
+import { lastReadLesson, lessonForLocation, restoreLesson } from '../src/lessons/progress.js';
 
 function browserState(hash, state = null, last = null) {
   globalThis.location = { hash };
@@ -8,9 +8,9 @@ function browserState(hash, state = null, last = null) {
   globalThis.localStorage = { getItem: () => last == null ? null : JSON.stringify(last) };
 }
 
-test('returns home to the learner’s last step and comparison route', () => {
+test('the chapter bookmark restores the learner’s last step and comparison route', () => {
   browserState('', null, { scenario: 'tie', source: 'camp', index: 5, target: 'summit', comparing: true, routeIndex: 1 });
-  const lesson = lessonForLocation();
+  const lesson = lastReadLesson();
   assert.equal(lesson.scenario.id, 'tie');
   assert.equal(lesson.index, 5);
   assert.equal(lesson.comparing, true);
