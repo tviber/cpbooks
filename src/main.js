@@ -120,7 +120,6 @@ document.addEventListener('click', event => {
     case 'home-page':
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       event.preventDefault();
-      stopPlayback();
       if (location.hash) history.pushState(null, '', button.href);
       showLocation(true);
       break;
@@ -174,13 +173,33 @@ function showLocation(focus = false, saved = null) {
   if (drawer.open) drawer.close();
   const onBook = !location.hash || location.hash === '#contents';
   const opening = location.hash === '#contents';
-  const enteringLesson = studio.hidden || !signs;
+  const leavingLesson = Boolean(lesson) && onBook;
+  const enteringLesson = studio.hidden || studio.inert || !signs;
+  const animate = !document.hidden && matchMedia('(prefers-reduced-motion: no-preference)').matches;
+  if (!location.hash && leavingLesson && scene && animate && !scene.renderer.getContext().isContextLost()) {
+    if (studio.inert) return;
+    studio.inert = true;
+    document.querySelector('.header-tools').hidden = true;
+    scene.close(() => {
+      lesson = null;
+      showLocation(focus);
+    });
+    return;
+  }
+  // A history traversal can interrupt the fold before its final frame.
+  if (scene) scene.onClosed = null;
+  studio.inert = false;
   studio.hidden = onBook;
   bookHome.hidden = !onBook;
   document.querySelector('.header-tools').hidden = onBook;
   if (onBook) {
     lesson = null;
     scene?.renderer.setAnimationLoop(null);
+    if (leavingLesson && !opening && animate) {
+      // The flat map has no 3D hinge. Establish the visible spread before folding its cover.
+      bookHome.classList.add('is-open');
+      void getComputedStyle(cover).transform;
+    }
     bookHome.classList.toggle('is-open', opening);
     cover.inert = opening;
     spread.inert = !opening;
@@ -201,7 +220,19 @@ function showLocation(focus = false, saved = null) {
   if (focus && enteringLesson) byId('lesson-title').focus({ preventScroll: true });
 }
 window.addEventListener('popstate', () => showLocation(true));
+// WebGL may stop delivering frames after context loss or while the tab is hidden.
+function finishHiddenFold() {
+  if (studio.inert) {
+    lesson = null;
+    showLocation(true);
+  }
+}
+byId('scene').addEventListener('scene-error', finishHiddenFold);
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => {
+  if (event.matches) finishHiddenFold();
+});
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden) finishHiddenFold();
   if (document.hidden && lesson?.playing) { stopPlayback(); render(); }
 });
 showLocation();

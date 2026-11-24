@@ -78,6 +78,9 @@
 .scene-link svg { width: 16px; }
 .scene-link:hover strong, .close-book:hover { color: #945032; }
 .close-book { align-self: end; margin-top: auto; padding: 10px 0; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) {
+  .book-stage, .book-cover, .spread-left { transition-property: none; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .book-stage { transition: transform .85s ease-in-out; }
   .book-cover { transition: transform .85s cubic-bezier(.35,.05,.24,1); }

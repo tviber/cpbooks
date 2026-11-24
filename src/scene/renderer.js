@@ -70,8 +70,7 @@ export class BookScene {
     this.pointer = new THREE.Vector2();
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.tween = null;
-    this.openStart = performance.now();
-    this.openDuration = this.reducedMotion ? 0 : 1600;
+    this.reopen();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
@@ -153,8 +152,18 @@ export class BookScene {
   }
 
   reopen() {
+    this.onClosed = null;
+    this.startOpening = 0;
     this.openStart = performance.now();
     this.openDuration = this.reducedMotion ? 0 : 1600;
+  }
+
+  close(onClosed) {
+    // Reverse from the current angle if the reader leaves mid-opening.
+    this.startOpening = 1 + this.left.rotation.z / Math.PI;
+    this.openStart = performance.now();
+    this.openDuration = 850 * this.startOpening;
+    this.onClosed = onClosed;
   }
 
   clear() {
@@ -331,7 +340,8 @@ export class BookScene {
   }
 
   frame(now) {
-    const opened = this.openDuration ? ease((now - this.openStart) / this.openDuration) : 1;
+    const progress = this.openDuration ? ease((now - this.openStart) / this.openDuration) : 1;
+    const opened = this.onClosed ? this.startOpening * (1 - progress) : progress;
     this.left.rotation.z = -Math.PI * (1 - opened);
     this.content.visible = opened > 0.62;
     this.content.scale.y = Math.max(0.001, ease((opened - 0.62) / 0.38));
@@ -351,6 +361,11 @@ export class BookScene {
       this.signs.layer.style.visibility = opened > .95 ? 'visible' : 'hidden';
       if (opened > .95) this.signs.project(this.projectMapPoint);
       this.mapProjectionDirty = opened < 1;
+    }
+    if (this.onClosed && opened === 0) {
+      const finish = this.onClosed;
+      this.onClosed = null;
+      finish();
     }
   }
 }
