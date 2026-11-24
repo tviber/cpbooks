@@ -64,13 +64,13 @@ export class MapSigns {
     this.stops.forEach((button, i) => {
       const { id, name } = scenario.stops[i];
       const value = frame.distance[id];
-      const fixed = frame.settled.includes(id);
-      const status = fixed ? '已确定' : Number.isFinite(value) ? '暂定' : '待发现';
+      const fixed = frame.popped.includes(id);
+      const status = fixed ? '已出队' : Number.isFinite(value) ? '暂定' : '待发现';
       button.dataset.state = fixed ? 'fixed' : Number.isFinite(value) ? 'candidate' : 'unknown';
-      button.classList.toggle('current', !inspected && id === (frame.to ?? frame.from ?? frame.source) && frame.kind !== 'finish');
+      button.classList.toggle('current', !inspected && id === frame.to);
       button.setAttribute('aria-pressed', String(id === inspected));
       button.setAttribute('aria-label', `${name}，${status}${Number.isFinite(value) ? ` ${value} 分钟` : ''}，查看路线`);
-      const rewritten = !inspected && id === frame.to && frame.improved && Number.isFinite(frame.old);
+      const rewritten = !inspected && id === frame.to && frame.kind === 'distance.write' && Number.isFinite(frame.old);
       const number = button.querySelector('b');
       if (rewritten) number.innerHTML = `<s>${frame.old}</s> → ${value}`;
       else number.textContent = `${fixed ? '✓ ' : ''}${timeLabel(value)}`;

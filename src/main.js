@@ -7,7 +7,8 @@ import { vectorView } from './ui/vector-view.js';
 import { binaryView } from './ui/binary-view.js';
 import { studioView } from './ui/studio-view.js';
 import { createMapLesson, mapDisplay } from './lessons/dijkstra.js';
-import { lessonForLocation } from './lessons/progress.js';
+import { mountEditor } from './ui/cpp-editor.js';
+import { attachExecution, lessonForLocation, lessonSnapshot } from './lessons/progress.js';
 import { MAP_SCENARIOS } from './lessons/towns.js';
 import { dijkstraView, mapHelp } from './ui/dijkstra-view.js';
 import { MapSigns } from './ui/map-signs.js';
@@ -17,8 +18,7 @@ const chapters = {
 };
 
 function saveLessonState() {
-  const { scenario, source, index, target, comparing, inspected, routeIndex } = model.map;
-  const dijkstra = { scenario: scenario.id, source, index, target, comparing, inspected, routeIndex };
+  const dijkstra = lessonSnapshot(model.map);
   try { localStorage.setItem('dijkstra.last', JSON.stringify(dijkstra)); } catch { /* Progress is optional. */ }
   history.replaceState({ ...history.state, lessonHash: location.hash, dijkstra }, '');
 }
@@ -46,6 +46,10 @@ const model = {
 };
 
 document.querySelector('#app').innerHTML = shell();
+const editor = mountEditor();
+const liveLine = document.createElement('div');
+liveLine.className = 'trace-line';
+document.getElementById('feedback').before(liveLine);
 const elements = Object.fromEntries(['lesson-title', 'lesson-subtitle', 'stats', 'controls', 'accessible-model', 'lesson-panel', 'code', 'code-caption', 'explanation', 'settings', 'feedback', 'drawer-feedback', 'drawer-chapter', 'progress-summary'].map(id => [id, document.getElementById(id)]));
 const drawer = document.getElementById('study-drawer');
 const mapSwitches = document.getElementById('map-switches');
@@ -81,7 +85,44 @@ function showMapStep(index, autoplay = false) {
   lesson.playing = autoplay && lesson.index < lesson.frames.length - 1;
   render();
   drawCurrent();
-  if (lesson.playing) mapTimer = setTimeout(() => showMapStep(lesson.index + 1, true), 3400);
+  if (lesson.playing) mapTimer = setTimeout(() => showMapStep(lesson.index + 1, true), 1000);
+}
+
+async function runMap() {
+  const lesson = model.map;
+  if (lesson.running) return;
+  if (!editor.field.value.trim()) {
+    openDrawer('code');
+    editor.field.focus();
+    announce('请输入 C++ 函数。', true);
+    return;
+  }
+  const code = editor.field.value;
+  stopPlayback();
+  lesson.running = true;
+  lesson.error = '';
+  lesson.frames = lesson.frames.slice(0, 1);
+  lesson.runId = null;
+  lesson.checks = [];
+  showMapStep(0);
+  try {
+    const response = await fetch('/api/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, scenario: lesson.scenario.id, source: lesson.source }), signal: AbortSignal.timeout(45000) });
+    if (!response.headers.get('Content-Type')?.includes('application/json')) throw new Error('执行服务不可用。请启动本地 Docker 和 Vite 服务。');
+    const trace = await response.json();
+    if (!response.ok || trace.error) throw new Error(`${trace.error?.phase ?? response.status} · ${trace.error?.message ?? '执行失败'}`);
+    if (model.map !== lesson) return;
+    attachExecution(lesson, trace, code);
+    lesson.comparing &&= trace.checks[0].passed;
+    drawer.close();
+  } catch (err) {
+    if (model.map !== lesson) return;
+    lesson.error = err.message;
+    openDrawer('code');
+  } finally {
+    lesson.running = false;
+    if (model.map === lesson) { render(); drawCurrent(); }
+  }
 }
 
 function inspectStop(id) {
@@ -130,6 +171,13 @@ function render() {
   elements['accessible-model'].innerHTML = view.accessible;
   elements['lesson-panel'].innerHTML = view.panel;
   elements.code.innerHTML = view.code;
+  liveLine.innerHTML = view.activeLine ?? '';
+  liveLine.hidden = !view.activeLine;
+  editor.form.hidden = !isMap;
+  editor.field.readOnly = !!model.map.running;
+  editor.submit.disabled = !!model.map.running;
+  editor.diagnostic.textContent = view.diagnostic ?? '';
+  editor.diagnostic.classList.toggle('error', !!model.map.error);
   elements['code-caption'].textContent = view.codeCaption;
   elements.explanation.innerHTML = view.explanation;
   elements.settings.innerHTML = view.settings;
@@ -153,8 +201,9 @@ function render() {
     saveLessonState();
     scenarioSelect.value = model.map.scenario.id;
     const compareButton = document.getElementById('map-compare');
-    compareButton.textContent = model.map.comparing ? '返回推演' : '比较路线';
-    compareButton.setAttribute('aria-pressed', String(model.map.comparing));
+    compareButton.disabled = !model.map.checks[0]?.passed;
+    compareButton.textContent = display.comparing ? '返回推演' : '比较路线';
+    compareButton.setAttribute('aria-pressed', String(!!display.comparing));
     signs.update(display);
   }
   if (model.busy) document.querySelectorAll('[data-action="choose-half"], [data-action="next-problem"]').forEach(button => { button.disabled = true; });
@@ -363,6 +412,8 @@ document.addEventListener('click', async event => {
         else showMapStep(model.map.index === model.map.frames.length - 1 ? 0 : model.map.index + 1, true);
         break;
       }
+      case 'map-run': await runMap(); break;
+      case 'map-starter': changeMapExample(model.map.scenario.id, model.map.source); drawer.close(); break;
       case 'map-next': showMapStep(model.map.index + 1); break;
       case 'map-back': showMapStep(model.map.index - 1); break;
       case 'map-inspect': inspectStop(button.dataset.stop); break;
@@ -526,6 +577,7 @@ document.addEventListener('change', event => {
 });
 
 document.addEventListener('submit', event => {
+  if (event.target === editor.form) { event.preventDefault(); runMap(); return; }
   if (event.target.id !== 'problem-form') return;
   event.preventDefault();
   const data = new FormData(event.target);
