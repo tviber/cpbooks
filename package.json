@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "runner:build": "docker build -t cpbooks-dijkstra:1 runner",
+    "traces:generate": "node scripts/starter-traces.js",
     "test:runner": "node --test tests/runner.integration.js",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",

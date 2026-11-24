@@ -28,5 +28,8 @@ export async function execute({ code, scenario, source }) {
   if (payload.error) return payload;
   const [{ events, result }] = payload.runs;
   return { version: 1, algorithm: 'dijkstra', scenario, source, events, result,
-    checks: cases.map((c, i) => verify(c, payload.runs[i].result)) };
+    checks: cases.map((c, i) => {
+      const run = payload.runs[i];
+      return run.error ? { name: c.name, passed: false, ...run.error } : verify(c, run.result);
+    }) };
 }

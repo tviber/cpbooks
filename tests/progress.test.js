@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lessonForLocation, restoreLesson } from '../src/lessons/progress.js';
+import { attachExecution, lessonForLocation, lessonSnapshot, restoreLesson } from '../src/lessons/progress.js';
+import starter from '../src/lessons/starter-traces.json' with { type: 'json' };
 
 function browserState(hash, state = null, last = null) {
   globalThis.location = { hash };
@@ -38,4 +39,31 @@ test('ignores a saved source or target that does not exist in the selected map',
   assert.equal(restoreLesson({ scenario: 'tie', source: 'missing', target: 'summit' }), null);
   browserState('', { lessonHash: '', dijkstra: { scenario: 'tie', source: 'camp', target: 'missing', comparing: false } });
   assert.equal(lessonForLocation().target, 'summit');
+});
+
+test('Back and Forward restore the exact run, check results, step, and comparison route', () => {
+  const trace = starter.traces.find(t => t.scenario === 'tie' && t.source === 'camp');
+  browserState('#dijkstra/tie');
+  const lesson = lessonForLocation();
+  attachExecution(lesson, trace, starter.code + '\n// first submission');
+  lesson.index = 22;
+  const back = lessonSnapshot(lesson);
+  lesson.comparing = true;
+  lesson.routeIndex = 1;
+  const forward = lessonSnapshot(lesson);
+  attachExecution(lesson, trace, starter.code + '\n// later submission');
+  for (const saved of [back, forward]) {
+    const hash = `#dijkstra/tie${saved.comparing ? '/compare' : ''}`;
+    browserState(hash, { lessonHash: hash, dijkstra: saved });
+    const restored = lessonForLocation();
+    assert.equal(restored.frames.length, 41);
+    assert.equal(restored.index, 22);
+    assert.equal(restored.routeIndex, saved.routeIndex);
+    assert.equal(restored.runId, back.runId);
+    assert.equal(restored.executedCode, starter.code + '\n// first submission');
+    assert.deepEqual(restored.checks, trace.checks);
+  }
+  const otherSource = restoreLesson({ ...back, source: 'pine' });
+  assert.equal(otherSource.runId, 'starter');
+  assert.equal(otherSource.index, 0);
 });

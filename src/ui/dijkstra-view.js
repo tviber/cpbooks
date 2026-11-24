@@ -24,7 +24,7 @@ export function dijkstraView(lesson, display = mapDisplay(lesson)) {
   const names = Object.fromEntries(stops.map(({ id, name }) => [id, name]));
   const hasTrace = frames.length > 1;
   const step = describe(frame, names, stops);
-  const score = `验证 ${checks.filter(c => c.passed).length} / ${checks.length}`;
+  const score = `${lesson.runId === 'starter' ? '示例' : '本次运行'} · 验证 ${checks.filter(c => c.passed).length} / ${checks.length}`;
   const line = frame.line && lesson.executedCode.split('\n')[frame.line - 1];
   const done = index === frames.length - 1;
   const edit = '<button data-action="drawer" data-tab="code">编辑 C++</button>';
@@ -37,7 +37,8 @@ export function dijkstraView(lesson, display = mapDisplay(lesson)) {
     <button id="map-play" data-action="map-play">${playing ? '暂停' : done ? '重新播放' : '播放'}</button>
     <button id="map-next" class="primary" data-action="map-next" ${done ? 'disabled' : ''}>下一步</button></div>`;
   else controls = `<div class="map-step"><small>C++17 · ${names[source]}出发</small><strong>${lesson.running ? '正在编译与验证…' : '最短路实验'}</strong></div>${edit}
-    <button class="primary" data-action="map-run" ${lesson.running ? 'disabled' : ''}>运行代码</button>`;
+    <button class="primary" data-action="map-run" ${lesson.running ? 'disabled' : ''}>运行代码</button>
+    ${lesson.error ? '<button data-action="map-starter">播放示例</button>' : ''}`;
 
   const summary = checks.map(c => `${c.passed ? '✓' : '×'} ${c.name}${c.message ? ` · ${c.message}` : ''}`).join('\n');
   const rows = stops.map(({ id, name }, i) => `<tr><th scope="row">${i} · ${name}</th><td>${timeLabel(frame.distance[id])}</td><td>${names[frame.previous[id]] ?? '—'}</td></tr>`).join('');

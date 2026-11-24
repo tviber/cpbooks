@@ -1,4 +1,5 @@
 import { MAP_SCENARIOS } from './towns.js';
+import starter from './starter-traces.json' with { type: 'json' };
 
 export const connects = (road, a, b) => road.from === a && road.to === b || road.from === b && road.to === a;
 const minutes = value => value === 2147483647 ? Infinity : value;
@@ -11,8 +12,10 @@ function initialFrame(scenario, source) {
 export function createMapLesson(scenarioId, source) {
   const scenario = MAP_SCENARIOS.find(s => s.id === scenarioId) ?? MAP_SCENARIOS[0];
   source ??= scenario.source;
-  return { source, scenario, frames: [initialFrame(scenario, source)], index: 0, playing: false, inspected: null,
-    comparing: false, target: source === scenario.target ? scenario.source : scenario.target, routeIndex: 0, checks: [] };
+  const trace = starter.traces.find(t => t.scenario === scenario.id && t.source === source);
+  return { source, scenario, frames: traceFrames({ source, scenario }, trace), index: 0, playing: false, inspected: null,
+    comparing: false, target: source === scenario.target ? scenario.source : scenario.target, routeIndex: 0,
+    runId: 'starter', executedCode: starter.code, checks: trace.checks };
 }
 
 export function traceFrames(lesson, trace) {

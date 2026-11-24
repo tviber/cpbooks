@@ -54,7 +54,7 @@ class Instrument : public RecursiveASTVisitor<Instrument> {
             if (base && base->getDecl() == queue) return true;
         }
         auto assign = parent<BinaryOperator>(sub);
-        if (!assign || assign->getOpcode() != BO_Assign || assign->getLHS() != sub || !plain(assign->getSourceRange())) return false;
+        if (!assign || assign->getOpcode() != BO_Assign || assign->getLHS() != sub) return false;
         // Slot assignment is a statement, not a replacement for an lvalue result.
         if (!parent<CompoundStmt>(assign) && !parent<IfStmt>(assign) && !parent<ForStmt>(assign) && !parent<WhileStmt>(assign)) return false;
         // Replace only the two brackets and the base. Nested RHS/index reads retain their ranges.

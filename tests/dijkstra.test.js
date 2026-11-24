@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createMapLesson, mapDisplay, roadInk, routeTo, traceFrames } from '../src/lessons/dijkstra.js';
 import { casesFor, verify } from '../server/verify.js';
+import { MAP_SCENARIOS } from '../src/lessons/towns.js';
 
 const event = (kind, node, value) => ({ kind, node, value, line: 9 });
 const lesson = createMapLesson('everyday');
@@ -11,7 +12,6 @@ const frames = traceFrames(lesson, { version: 1, algorithm: 'dijkstra', scenario
 ] });
 
 test('distance and parent writes have independent, reversible source steps', () => {
-  assert.equal(lesson.frames.length, 1);
   assert.equal(frames[5].distance.clock, 7);
   assert.equal(frames[6].distance.clock, 3);
   assert.deepEqual(routeTo(frames[6], 'clock'), ['post', 'clock']);
@@ -32,6 +32,19 @@ test('the verifier accepts either valid parent, rejects incorrect distances and 
 });
 
 test('comparison requires a verified result and a trace must match its map', () => {
-  assert.equal(mapDisplay({ ...lesson, frames, comparing: true }).frame, frames[0]);
+  assert.equal(mapDisplay({ ...lesson, frames, checks: [], comparing: true }).frame, frames[0]);
   assert.throws(() => traceFrames(lesson, { version: 2 }), /轨迹/);
+});
+
+test('every published map and source has playable, verified starter steps and a comparison route', () => {
+  for (const scenario of MAP_SCENARIOS) for (const { id } of scenario.stops) {
+    const starter = createMapLesson(scenario.id, id);
+    assert.ok(starter.frames.length > 2);
+    assert.ok(starter.checks.every(c => c.passed));
+    const display = mapDisplay({ ...starter, comparing: true });
+    assert.equal(display.frame.kind, 'finish');
+    assert.equal(display.route[0], id);
+    assert.equal(display.route.at(-1), starter.target);
+    assert.equal(starter.executedCode.split('\n')[starter.frames[1].line - 1].trim(), 'dist[source] = 0;');
+  }
 });

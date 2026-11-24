@@ -82,7 +82,10 @@ def work(job):
         try:
             run = run_case(case, source.count('\n') + 1)
         except Failure as exc:
-            raise Failure(exc.phase, f"{case['name']}: {exc}")
+            if not runs:
+                raise Failure(exc.phase, f"{case['name']}: {exc}")
+            runs.append(dict(error=dict(phase=exc.phase, message=str(exc))))
+            continue
         if runs:
             del run['events']
         runs.append(run)

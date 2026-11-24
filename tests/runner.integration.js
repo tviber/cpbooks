@@ -40,6 +40,27 @@ test('compiler errors, uninstrumentable writes, and nonterminating code return e
   assert.equal(timeout.error?.phase, 'timeout');
 });
 
+test('INT_MAX on the RHS records every direct write at its original line', async () => {
+  const code = starter.replace('    dist[source] = 0;', '    for (int i = 0; i < graph.size(); ++i) dist[i] = INT_MAX;\n    dist[source] = 0;');
+  const trace = await input(code);
+  assert.ok(trace.checks?.every(c => c.passed), JSON.stringify(trace.error));
+  const line = code.split('\n').findIndex(s => s.includes('= INT_MAX')) + 1;
+  assert.deepEqual(trace.events.slice(0, 8), Array.from({ length: 8 }, (_, node) => ({ kind: 'distance.write', line, node, value: 2147483647 })));
+});
+
+test('a failed extra graph preserves the selected run and every other check, in either order', async () => {
+  for (const failingSize of [4, 5]) {
+    const code = reverseTie.replace('    dist[source] = 0;', `    if (graph.size() == ${failingSize}) throw 1;\n    dist[source] = 0;`);
+    const trace = await input(code);
+    assert.equal(trace.result.distance[7], 8);
+    assert.equal(trace.events.find(e => e.kind === 'queue.pop' && e.value === 3).node, 4);
+    assert.deepEqual(trace.checks.map(c => c.passed), [true, failingSize !== 4, failingSize !== 5]);
+    const failed = trace.checks.find(c => !c.passed);
+    assert.equal(failed.phase, 'runtime');
+    assert.ok(failed.message);
+  }
+});
+
 
 test('expired entries survive playback and incorrect submissions keep their own results', async () => {
   const lesson = createMapLesson('everyday');
