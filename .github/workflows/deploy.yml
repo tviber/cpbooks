@@ -30,17 +30,8 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Build the local C++ runner
-        run: npm run runner:build
-
       - name: Run lesson tests
         run: npm test
-
-      - name: Exercise both C++ comparators and runner diagnostics
-        run: npm run test:runner
-
-      - name: Verify published walkthroughs against live C++ executions
-        run: node scripts/starter-traces.js --check
 
       - name: Build website
         run: npm run build

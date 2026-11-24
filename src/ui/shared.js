@@ -23,11 +23,11 @@ export function codeBlock(lines, active = lines.length - 1) {
 export function shell() {
   return `<header class="site-header">
     <a class="brand" href="/" data-action="home-page" aria-label="纸上算法首页">${icons.book}<span>纸上算法</span></a>
-    <div class="header-tools"><button class="reading-button" data-action="drawer" data-tab="learn" aria-label="打开讲解与代码">${icons.code}<span>讲解与代码</span></button><button class="icon-button settings-button" data-action="drawer" data-tab="settings" title="实验设置" aria-label="实验设置">${icons.settings}</button></div>
+    <div class="header-tools"><button class="icon-button" data-action="drawer" aria-haspopup="dialog" aria-controls="study-drawer" title="播放设置" aria-label="播放设置">${icons.settings}</button></div>
   </header>
-  <main class="studio">
+  <main class="studio" data-mode="dijkstra">
     <section class="intro" aria-labelledby="lesson-title"><h1 id="lesson-title"></h1><p id="lesson-subtitle"></p></section>
-    <div class="map-switches" id="map-switches" hidden><label for="map-scenario">场景</label><select id="map-scenario" name="map-scenario"><button><selectedcontent></selectedcontent></button></select><button id="map-compare" data-action="map-compare">比较路线</button></div>
+    <div class="map-switches" id="map-switches"><label for="map-scenario">场景</label><select id="map-scenario" name="map-scenario"><button><selectedcontent></selectedcontent></button></select><button id="map-compare" data-action="map-compare">比较路线</button></div>
     <div id="stats" class="live-stats" aria-label="当前状态"></div>
     <section class="scene-wrap" aria-label="立体书实验台"><div id="scene" class="scene"></div></section>
     <div class="interaction-area">
@@ -38,10 +38,7 @@ export function shell() {
     <div class="scene-tools"><button class="round-button" data-action="home" title="恢复视角" aria-label="恢复视角">${icons.view}</button><button class="round-button" data-action="reset-current" title="重置实验" aria-label="重置实验">${icons.reset}</button></div>
   </main>
   <dialog id="study-drawer" class="study-drawer" aria-labelledby="drawer-title">
-    <div class="drawer-heading"><div><span id="drawer-chapter"></span><h2 id="drawer-title">翻开这一页</h2></div><button class="icon-button" data-action="close-drawer" aria-label="关闭面板">${icons.close}</button></div>
-    <div class="drawer-tabs" role="tablist" aria-label="学习面板"><button role="tab" id="learn-tab" aria-controls="learn-pane" data-action="drawer-tab" data-tab="learn">讲解</button><button role="tab" id="code-tab" aria-controls="code-pane" data-action="drawer-tab" data-tab="code">C++ 代码</button><button role="tab" id="settings-tab" aria-controls="settings-pane" data-action="drawer-tab" data-tab="settings">实验设置</button></div>
-    <div class="drawer-content"><section id="learn-pane" role="tabpanel" aria-labelledby="learn-tab"><div id="explanation"></div><div id="lesson-panel"></div></section><section id="code-pane" role="tabpanel" aria-labelledby="code-tab" hidden><p id="code-caption"></p><div id="code"></div></section><section id="settings-pane" role="tabpanel" aria-labelledby="settings-tab" hidden><div id="settings"></div><div id="accessible-model"></div></section><p id="drawer-feedback" class="drawer-feedback" role="status" aria-live="polite"></p></div>
-    <div class="drawer-footer"><span id="progress-summary"></span><button class="text-button" data-action="manual">操作帮助</button></div>
-  </dialog>
-  <dialog id="manual" class="manual-dialog" aria-labelledby="manual-title"><div class="dialog-heading"><h2 id="manual-title">这本书，怎么读？</h2><button class="icon-button" data-action="close-manual" aria-label="关闭学习手册">${icons.close}</button></div><div class="manual-content"></div><button class="primary" data-action="close-manual">回到实验台 ${icons.arrow}</button></dialog>`;
+    <div class="drawer-heading"><h2 id="drawer-title">播放设置</h2><button class="icon-button" data-action="close-drawer" aria-label="关闭设置">${icons.close}</button></div>
+    <div class="drawer-content"><div id="settings"></div><div id="accessible-model"></div></div>
+  </dialog>`;
 }

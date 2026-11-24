@@ -1,69 +1,62 @@
 import { MAP_SCENARIOS } from './towns.js';
-import starter from './starter-traces.json' with { type: 'json' };
 
 export const connects = (road, a, b) => road.from === a && road.to === b || road.from === b && road.to === a;
-const minutes = value => value === 2147483647 ? Infinity : value;
 
-function initialFrame(scenario, source) {
-  const values = value => Object.fromEntries(scenario.stops.map(({ id }) => [id, value]));
-  return { kind: 'ready', source, distance: values(Infinity), previous: values(null), popped: [], queueSize: 0 };
-}
-
-export function createMapLesson(scenarioId, source) {
-  const scenario = MAP_SCENARIOS.find(s => s.id === scenarioId) ?? MAP_SCENARIOS[0];
-  source ??= scenario.source;
-  const trace = starter.traces.find(t => t.scenario === scenario.id && t.source === source);
-  return { source, scenario, frames: traceFrames({ source, scenario }, trace), index: 0, playing: false, inspected: null,
-    comparing: false, target: source === scenario.target ? scenario.source : scenario.target, routeIndex: 0,
-    runId: 'starter', executedCode: starter.code, checks: trace.checks };
-}
-
-export function traceFrames(lesson, trace) {
-  const { scenario, source } = lesson;
-  if (trace.version !== 1 || trace.algorithm !== 'dijkstra' || trace.scenario !== scenario.id || trace.source !== source) throw new Error('轨迹与地图不匹配');
-  const frames = [initialFrame(scenario, source)];
-  for (const { kind, line, node, value } of trace.events) {
-    const prev = frames.at(-1);
-    const id = scenario.stops[node]?.id;
-    if (!id || !Number.isInteger(line) || line < 1 || !Number.isInteger(value)) throw new Error('无效的执行记录');
-    const frame = { kind, source, line, to: id, value, distance: prev.distance, previous: prev.previous, popped: prev.popped, queueSize: prev.queueSize };
-    switch (kind) {
-      case 'distance.write':
-        frame.old = prev.distance[id];
-        frame.distance = { ...prev.distance, [id]: minutes(value) };
-        break;
-      case 'parent.write': {
-        const parent = scenario.stops[value]?.id ?? null;
-        frame.previous = { ...prev.previous, [id]: parent };
-        if (scenario.roads.some(r => connects(r, parent, id))) frame.from = parent;
-        break;
-      }
-      case 'queue.push': frame.queueSize++; break;
-      case 'queue.top': break;
-      case 'queue.pop':
-        frame.queueSize--;
-        frame.stale = value !== prev.distance[id];
-        if (!frame.stale && !prev.popped.includes(id)) frame.popped = [...prev.popped, id];
-        break;
-      default: throw new Error(`未知事件 ${kind}`);
-    }
-    frames.push(frame);
+// Keep a snapshot in each frame so stepping back restores the old paths and times.
+export function dijkstraFrames(stops, roads, source) {
+  const neighbors = new Map(stops.map(({ id }) => [id, []]));
+  if (!neighbors.has(source)) throw new RangeError('起点不在地图上');
+  for (const { from, to, minutes } of roads) {
+    if (!Number.isFinite(minutes) || minutes < 0) throw new RangeError('Dijkstra 要求非负的有限路程');
+    neighbors.get(from).push({ to, minutes });
+    neighbors.get(to).push({ to: from, minutes });
   }
-  const last = frames.at(-1);
-  frames.push({ ...initialFrame(scenario, source), kind: 'finish', distance: last.distance, previous: last.previous, popped: last.popped, queueSize: last.queueSize });
+  const distance = Object.fromEntries(stops.map(({ id }) => [id, Infinity]));
+  const previous = Object.fromEntries(stops.map(({ id }) => [id, null]));
+  const settled = new Set();
+  const frames = [];
+  function record(kind, event = {}) {
+    frames.push({ kind, source, ...event, distance: { ...distance }, previous: { ...previous }, settled: [...settled] });
+  }
+  distance[source] = 0;
+  record('start');
+  while (true) {
+    let nearest = null;
+    let minimum = Infinity;
+    for (const { id } of stops) {
+      if (!settled.has(id) && distance[id] < minimum) {
+        nearest = id;
+        minimum = distance[id];
+      }
+    }
+    if (nearest === null) break;
+    settled.add(nearest);
+    record('settle', { from: nearest });
+    for (const { to, minutes } of neighbors.get(nearest)) {
+      if (settled.has(to)) continue;
+      const old = distance[to];
+      const oldParent = previous[to];
+      const proposed = minimum + minutes;
+      if (proposed < old) {
+        distance[to] = proposed;
+        previous[to] = nearest;
+      }
+      record('road', { from: nearest, to, minutes, old, oldParent, proposed, improved: proposed < old });
+    }
+  }
+  record('finish');
   return frames;
 }
 
 export function routeTo(frame, destination) {
   if (!Number.isFinite(frame.distance[destination])) return [];
-  const path = [];
-  for (let id = destination; id && !path.includes(id); id = frame.previous[id]) {
-    path.push(id);
-    if (id === frame.source) return path.reverse();
-  }
-  return []; // Parent writes can lag distance writes, or student code can create a cycle.
+  const route = [];
+  for (let stop = destination; stop !== null; stop = frame.previous[stop]) route.push(stop);
+  return route.reverse();
 }
 
+// After Dijkstra finishes, a shortest path can only enter v from a neighbour u
+// for which d[u] + w == d[v]. Visit the recorded parent first to match the tree.
 export function shortestRoutesTo(frame, roads, destination) {
   if (!Number.isFinite(frame.distance[destination])) return [];
   const routes = [];
@@ -73,7 +66,8 @@ export function shortestRoutesTo(frame, roads, destination) {
     const parents = [];
     for (const { from, to, minutes } of roads) {
       const neighbour = from === id ? to : to === id ? from : null;
-      if (!neighbour || path.includes(neighbour) || frame.distance[neighbour] + minutes !== frame.distance[id]) continue;
+      // Only simple paths: zero-minute cycles must not repeat a station.
+      if (neighbour === null || path.includes(neighbour) || frame.distance[neighbour] + minutes !== frame.distance[id]) continue;
       if (neighbour === frame.previous[id]) parents.unshift(neighbour);
       else parents.push(neighbour);
     }
@@ -83,19 +77,33 @@ export function shortestRoutesTo(frame, roads, destination) {
   return routes;
 }
 
+// Shared by the paper roads, their labels and the flat map. null means no selection;
+// an empty selected route means that this station hasn't been reached yet.
 export function roadInk(road, frame, inspectedRoute = null) {
-  if (inspectedRoute !== null) return inspectedRoute.some((stop, i) => i && connects(road, inspectedRoute[i - 1], stop)) ? 'traced' : 'idle';
-  if (frame.kind === 'parent.write' && connects(road, frame.from, frame.to)) return 'traced';
+  if (inspectedRoute !== null) {
+    return inspectedRoute.some((stop, i) => i > 0 && connects(road, inspectedRoute[i - 1], stop)) ? 'traced' : 'idle';
+  }
+  if (frame.kind === 'road') {
+    if (connects(road, frame.from, frame.to)) return frame.improved ? 'traced' : frame.proposed === frame.old ? 'equal' : 'rejected';
+    if (frame.improved && connects(road, frame.oldParent, frame.to)) return 'replaced';
+  }
   const child = [road.from, road.to].find(id => connects(road, frame.previous[id], id));
-  return !child ? 'idle' : frame.popped.includes(child) ? 'fixed' : 'candidate';
+  if (child === undefined) return 'idle';
+  return frame.settled.includes(child) ? 'fixed' : 'candidate';
+}
+
+export function createMapLesson(scenarioId, source) {
+  const scenario = MAP_SCENARIOS.find(s => s.id === scenarioId) ?? MAP_SCENARIOS[0];
+  const { stops, roads } = scenario;
+  source ??= scenario.source;
+  return { source, scenario, frames: dijkstraFrames(stops, roads, source), index: 0, playing: false, inspected: null,
+    comparing: false, target: source === scenario.target ? scenario.source : scenario.target, routeIndex: 0 };
 }
 
 export function mapDisplay(lesson) {
-  const { scenario, frames, index, routeIndex } = lesson;
-  const comparing = lesson.comparing && lesson.checks[0]?.passed;
+  const { scenario, frames, index, comparing, routeIndex } = lesson;
   const frame = comparing ? frames.at(-1) : frames[index];
   const inspected = comparing ? lesson.target : lesson.inspected;
-  const routes = !inspected ? [] : frame.kind === 'finish' && lesson.checks[0]?.passed
-    ? shortestRoutesTo(frame, scenario.roads, inspected) : [routeTo(frame, inspected)];
-  return { scenario, frame, comparing, inspected, routes, route: inspected ? routes[routeIndex] ?? routes[0] ?? [] : null };
+  const routes = !inspected ? [] : frame.kind === 'finish' ? shortestRoutesTo(frame, scenario.roads, inspected) : [routeTo(frame, inspected)];
+  return { scenario, frame, inspected, routes, route: inspected ? routes[routeIndex] ?? routes[0] ?? [] : null };
 }

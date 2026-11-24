@@ -128,9 +128,9 @@ export function buildTown(group, m, picks, scenario) {
         }
       }
       for (const { id } of stops) {
-        pads[id].material = !inspected && id === frame.to ? m.rust : frame.popped.includes(id) ? m.mint : Number.isFinite(frame.distance[id]) ? m.sand : m.paper;
+        pads[id].material = frame.settled.includes(id) ? m.mint : Number.isFinite(frame.distance[id]) ? m.sand : m.paper;
       }
-      traveling = frame.kind === 'parent.write' && frame.from && !inspected && !reducedMotion
+      traveling = frame.kind === 'road' && !inspected && !reducedMotion
         ? { start: performance.now(), path: roadPath(layout, frame.from, frame.to) } : null;
       courier.visible = !!traveling;
     },

@@ -494,14 +494,3 @@ th, td { padding: 10px 2px; border-bottom: 1px solid #e9ebdf; }
   button:active:not(:disabled) { background: #e4e9dc; }
   button.primary:active:not(:disabled) { background: var(--accent-hover); }
 }
-.cpp-editor { display: grid; gap: .75rem; }
-.cpp-editor[hidden], .trace-line[hidden] { display: none; }
-.cpp-editor label { font-weight: 600; }
-.cpp-editor p { margin: 0; color: var(--muted); font-size: .85rem; }
-.cpp-editor textarea { width: 100%; min-height: 10rem; resize: vertical; padding: .75rem; border: 1px solid #9c9e90; border-radius: 6px; color: var(--ink); background: #fffef9; font: 1rem/1.5 ui-monospace, monospace; }
-.cpp-editor button { justify-self: start; }
-.cpp-editor pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
-.cpp-editor pre.error { color: #983e29; }
-.trace-line { text-align: center; font-size: .8rem; margin-block: .45rem; }
-.trace-line span { margin-inline-end: .4rem; }
-.trace-line mark { background: #fff1c5; color: #493723; padding: .12rem .35rem; overflow-wrap: anywhere; }

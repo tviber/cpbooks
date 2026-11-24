@@ -1,35 +1,18 @@
-import { createMapLesson, mapDisplay, traceFrames } from './dijkstra.js';
+import { createMapLesson, mapDisplay } from './dijkstra.js';
 import { MAP_SCENARIOS } from './towns.js';
-
-// Each history entry stores its own cursor. Entries for the same execution share one recording.
-const recordings = new Map();
-
-export function attachExecution(lesson, trace, code) {
-  const runId = crypto.randomUUID();
-  const frames = traceFrames(lesson, trace);
-  recordings.set(runId, { trace, code });
-  Object.assign(lesson, { runId, frames, executedCode: code, checks: trace.checks });
-}
-
-export function lessonSnapshot({ scenario, source, target, comparing, inspected, index, routeIndex, runId }) {
-  return { scenario: scenario.id, source, target, comparing, inspected, index, routeIndex, runId };
-}
 
 export function restoreLesson(saved) {
   const scenario = MAP_SCENARIOS.find(item => item.id === saved?.scenario);
   if (!scenario?.stops.some(stop => stop.id === saved.source)) return null;
   const lesson = createMapLesson(scenario.id, saved.source);
+  // Execution traces used a different sequence of frames from the map animation.
+  const sameTimeline = !Object.hasOwn(saved, 'runId');
+  if (sameTimeline && Number.isInteger(saved.index)) lesson.index = Math.max(0, Math.min(saved.index, lesson.frames.length - 1));
   if (scenario.stops.some(stop => stop.id === saved.target)) lesson.target = saved.target;
   lesson.comparing = saved.comparing === true;
   if (scenario.stops.some(stop => stop.id === saved.inspected)) lesson.inspected = saved.inspected;
-  const recording = recordings.get(saved.runId);
-  if (recording?.trace.scenario === scenario.id && recording.trace.source === lesson.source) {
-    Object.assign(lesson, { runId: saved.runId, frames: traceFrames(lesson, recording.trace),
-      executedCode: recording.code, checks: recording.trace.checks });
-  }
-  if (lesson.runId === saved.runId) {
-    if (Number.isInteger(saved.index) && saved.index >= 0 && saved.index < lesson.frames.length) lesson.index = saved.index;
-    if (Number.isInteger(saved.routeIndex) && saved.routeIndex >= 0 && saved.routeIndex < mapDisplay(lesson).routes.length) lesson.routeIndex = saved.routeIndex;
+  if (sameTimeline && Number.isInteger(saved.routeIndex) && saved.routeIndex > 0 && saved.routeIndex < mapDisplay(lesson).routes.length) {
+    lesson.routeIndex = saved.routeIndex;
   }
   return lesson;
 }
